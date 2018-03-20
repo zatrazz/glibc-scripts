@@ -99,6 +99,10 @@ class Context(object):
       self.run_configure(glibcs, self.extra_config_opts)
       self.run_build(glibcs)
       self.run_check(glibcs)
+    if action == "check-abi":
+      self.run_configure(glibcs, self.extra_config_opts)
+      self.run_build(glibcs)
+      self.run_check_abi(glibcs)
 
   def run_configure(self, glibcs, extra_config_opts):
     if not glibcs:
@@ -122,6 +126,13 @@ class Context(object):
     for c in glibcs:
       buildpath = PATHS["builddir"] + '/' + c
       self.glibc_configs[c].check(buildpath)
+
+  def run_check_abi(self, glibcs):
+    if not glibcs:
+      configs = sorted(self.glibc_configs.keys())
+    for c in glibcs:
+      buildpath = PATHS["builddir"] + '/' + c
+      self.glibc_configs[c].check_abi(buildpath)
 
   def add_config(self, **args):
     """Add an individual build configuration."""
@@ -333,6 +344,12 @@ class Glibc(object):
 	   '-j%d' % (self.ctx.parallelism)]
     return self.run_command_with_log(cmd, 'check', builddir)
 
+  def check_abi(self, builddir):
+    cmd = ['make',
+           'check-abi',
+	   '-j%d' % (self.ctx.parallelism)]
+    return self.run_command_with_log(cmd, 'check', builddir)
+
 
 def get_parser():
   parser = argparse.ArgumentParser(description=__doc__)
@@ -356,7 +373,7 @@ def get_parser():
                       action='store_false', default=True)
   parser.add_argument('action',
                       help='What to do',
-                      choices=('configure', 'build', 'check'))
+                      choices=('configure', 'build', 'check', 'check-abi'))
   parser.add_argument('configs',
                       help='Configurations to build (ex. x86_64-linux-gnu)',
                       nargs='*')
