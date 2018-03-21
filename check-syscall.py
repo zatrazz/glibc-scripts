@@ -28,14 +28,14 @@ ABIS = { "aarch64"    : "aarch64",
          "powerpc"    : "powerpc",
          "powerpcspe" : "powerpc-gnuspe",
          "riscv64"    : "riscv64",
-         "s390"       : "s390x",
-         "s390x"      : "s390x -m31",
+         "s390"       : "s390x -m31",
+         "s390x"      : "s390x",
          "sh4"        : "sh4",
          "sparc64"    : "sparc64",
          "sparcv9"    : "sparc64 -m32",
          "tilegx"     : "tilegx",
          "x86_64"     : "x86_64",
-         #"x86_64-x32" : "x86_64 -mx32"
+         "x86_64-x32" : "x86_64 -mx32"
 }
 
 def get_compiler_path(abi):
