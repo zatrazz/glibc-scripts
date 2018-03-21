@@ -348,7 +348,7 @@ class Glibc(object):
     cmd = ['make',
            'check-abi',
 	   '-j%d' % (self.ctx.parallelism)]
-    return self.run_command_with_log(cmd, 'check', builddir)
+    return self.run_command_with_log(cmd, 'check-abi', builddir)
 
 
 def get_parser():
