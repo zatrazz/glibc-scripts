@@ -64,12 +64,50 @@ class Config(object):
     self.glibcs = glibcs
 
 
+class Job:
+  def __init__(self, arch):
+    self.arch = arch
+    self.configure = None
+    self.build = None
+    self.check = None
+    self.check_abi = None
+
+  def __repr__(self):
+    return self.arch
+
+
+class JobControl:
+  def __init__(self, action):
+    self.jobs = {}
+    self.action = action
+
+  def queue_job(self, name, cmd):
+    if cmd is None:
+      return
+    builddir = PATHS["builddir"] + '/' + name
+    outfile = create_file(PATHS["logsdir"] + '/' + name + '_' + self.action + '.out')
+    errfile = create_file(PATHS["logsdir"] + '/' + name + '_' + self.action + '.err')
+    proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
+    self.jobs[name] = proc
+
+  def wait_queue(self):
+    for arch in sorted(self.jobs.keys()):
+      proc = self.jobs[arch]
+      proc.wait()
+      msg = "%s | %s" % (self.action, arch)
+      if proc.returncode is not 0:
+        print("FAIL : " + msg)
+      else:
+        print("PASS : " + msg)
+
 
 class Context(object):
-  def __init__(self, parallelism, run_built_tests, keep, tunables, stackprot,
+  def __init__(self, parallelize, run_built_tests, keep, tunables, stackprot,
                multiarch):
     """Initialize the context."""                                                       
-    self.parallelism = parallelism
+    self.parallelize = parallelize[0]
+    self.build_jobs = parallelize[1]
+
     self.run_built_tests = run_built_tests
 
     self.extra_config_opts = []
@@ -90,49 +128,60 @@ class Context(object):
     self.add_all_configs()
 
   def run(self, action, glibcs):
-    if action == "configure":
-      self.run_configure(glibcs, self.extra_config_opts)
-    if action == "build":
-      self.run_configure(glibcs, self.extra_config_opts)
-      self.run_build(glibcs)
-    if action == "check":
-      self.run_configure(glibcs, self.extra_config_opts)
-      self.run_build(glibcs)
-      self.run_check(glibcs)
-    if action == "check-abi":
-      self.run_configure(glibcs, self.extra_config_opts)
-      self.run_build(glibcs)
-      self.run_check_abi(glibcs)
-
-  def run_configure(self, glibcs, extra_config_opts):
     if not glibcs:
       glibcs = sorted(self.glibc_configs.keys())
+
+    jobs = []
     for c in glibcs:
+      job = Job(c)
+
       buildpath = PATHS["builddir"] + '/' + c
       if self.keep is False:
         remove_recreate_dirs(buildpath)
-      self.glibc_configs[c].configure(buildpath, extra_config_opts)
 
-  def run_build(self, glibcs):
-    if not glibcs:
-      glibcs = sorted(self.glibc_configs.keys())
-    for c in glibcs:
-      buildpath = PATHS["builddir"] + '/' + c
-      self.glibc_configs[c].build(buildpath)
+      if action == "configure":
+        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
+      if action == "build":
+        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
+        job.build = self.glibc_configs[c].build()
+      if action == "check":
+        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
+        job.build = self.glibc_configs[c].build()
+        job.check = self.glibc_configs[c].check()
+      if action == "check-abi":
+        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
+        job.build = self.glibc_configs[c].build()
+        job.check = self.glibc_configs[c].check_abi()
 
-  def run_check(self, glibcs):
-    if not glibcs:
-      configs = sorted(self.glibc_configs.keys())
-    for c in glibcs:
-      buildpath = PATHS["builddir"] + '/' + c
-      self.glibc_configs[c].check(buildpath)
+      jobs.append(job)
 
-  def run_check_abi(self, glibcs):
-    if not glibcs:
-      configs = sorted(self.glibc_configs.keys())
-    for c in glibcs:
-      buildpath = PATHS["builddir"] + '/' + c
-      self.glibc_configs[c].check_abi(buildpath)
+    n = self.parallelize
+    jobsbatch = [jobs[i:i+n] for i in range(0, len(jobs), n)]
+
+    for batch in jobsbatch:
+      jobctrl = JobControl('configure')
+      for job in batch:
+        jobctrl.queue_job(job.arch, job.configure)
+      jobctrl.wait_queue()
+
+    for batch in jobsbatch:
+      jobctrl = JobControl('build')
+      for job in batch:
+        jobctrl.queue_job(job.arch, job.build)
+      jobctrl.wait_queue()
+
+    for batch in jobsbatch:
+      jobctrl = JobControl('check')
+      for job in batch:
+        jobctrl.queue_job(job.arch, job.check)
+      jobctrl.wait_queue()
+
+    for batch in jobsbatch:
+      jobctrl = JobControl('check-abi')
+      for job in batch:
+        jobctrl.queue_job(job.arch, job.check_abi)
+      jobctrl.wait_queue()
+
 
   def add_config(self, **args):
     """Add an individual build configuration."""
@@ -146,6 +195,7 @@ class Context(object):
         print('error: duplicate glibc config %s' % c.name)
         exit(1)
       self.glibc_configs[c.name] = c
+
 
   def add_all_configs(self):
     """Add all known glibc build configurations."""
@@ -298,21 +348,7 @@ class Glibc(object):
       ctool = '%s %s' % (ctool, self.ccopts)
     return ctool
 
-  def run_command_with_log(self, cmd, action, builddir):
-    outfile = create_file(PATHS["logsdir"] + '/' + self.name + '_' + action + '.out')
-    errfile = create_file(PATHS["logsdir"] + '/' + self.name + '_' + action + '.err')
-    ret = subprocess.run(cmd, cwd=builddir, check=False, stdout=outfile, stderr=errfile)
-    outfile.flush()
-    errfile.flush()
-    msg = "%s | %s" % (action, self.name)
-    if ret.returncode is not 0:
-      print ("FAIL: " + msg)
-      return False
-    else:
-      print ("PASS: " + msg)
-      return True
-
-  def configure(self, builddir, extra_config_opts):
+  def configure(self, extra_config_opts):
     cmd = [PATHS["srcdir"] + '/configure',
            '--prefix=/usr',
            '--build=%s' % build_triplet(),
@@ -330,32 +366,35 @@ class Glibc(object):
            'STRIP=%s' % self.tool_name('strip')]
     cmd = cmd + extra_config_opts
     cmd += self.cfg
-    return self.run_command_with_log(cmd, 'configure', builddir)
+    return cmd
 
-  def build(self, builddir):
-    cmd = ['make',
-	   '-j%d' % (self.ctx.parallelism)]
-    return self.run_command_with_log(cmd, 'make', builddir)
+  def build(self):
+    return ['make',
+	    '-j%d' % (self.ctx.build_jobs)]
 
-  def check(self, builddir):
-    cmd = ['make',
-           'check',
-           'run-built-tests=%s' % (self.ctx.run_built_tests),
-	   '-j%d' % (self.ctx.parallelism)]
-    return self.run_command_with_log(cmd, 'check', builddir)
+  def check(self):
+    return ['make',
+            'check',
+            'run-built-tests=%s' % (self.ctx.run_built_tests),
+	    '-j%d' % (self.ctx.build_jobs)]
 
-  def check_abi(self, builddir):
-    cmd = ['make',
-           'check-abi',
-	   '-j%d' % (self.ctx.parallelism)]
-    return self.run_command_with_log(cmd, 'check-abi', builddir)
+  def check_abi(self):
+    return ['make',
+            'check-abi',
+	    '-j%d' % (self.ctx.build_jobs)]
 
+
+def parallelize_type(string):
+  fields = string.split(':')
+  if len(fields) == 1:
+    return [ int(fields[0]), 1 ]
+  return [ int(fields[0]), int(fields[1]) ]
 
 def get_parser():
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('-j', dest='parallelism',
-                      help='Run this number of jobs in parallel',
-                      type=int, default=os.cpu_count())
+  parser.add_argument('-p', dest='parallelize',
+                      help='Run a number of parallel build with make -j',
+                      type=parallelize_type)
   parser.add_argument('-k', dest='keep',
                       help='Keep old file and just run the command',
                       action='store_true', default=False)
@@ -393,7 +432,7 @@ SPECIAL_LISTS = {
 def main(argv):
   parser = get_parser()
   opts = parser.parse_args(argv)
-  ctx = Context(opts.parallelism,
+  ctx = Context(opts.parallelize,
 		"yes" if opts.run_built_tests else "no",
 		opts.keep,
 		opts.enable_tunables,
