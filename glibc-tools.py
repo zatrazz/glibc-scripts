@@ -394,7 +394,7 @@ def get_parser():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('-p', dest='parallelize',
                       help='Run a number of parallel build with make -j',
-                      type=parallelize_type)
+                      type=parallelize_type, default="1:%s" % os.cpu_count())
   parser.add_argument('-k', dest='keep',
                       help='Keep old file and just run the command',
                       action='store_true', default=False)
@@ -432,6 +432,7 @@ SPECIAL_LISTS = {
 def main(argv):
   parser = get_parser()
   opts = parser.parse_args(argv)
+
   ctx = Context(opts.parallelize,
 		"yes" if opts.run_built_tests else "no",
 		opts.keep,
