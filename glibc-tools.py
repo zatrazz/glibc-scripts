@@ -151,7 +151,7 @@ class Context(object):
       if action == "check-abi":
         job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
         job.build = self.glibc_configs[c].build()
-        job.check = self.glibc_configs[c].check_abi()
+        job.check_abi = self.glibc_configs[c].check_abi()
 
       jobs.append(job)
 
