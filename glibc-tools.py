@@ -6,18 +6,29 @@ import shutil
 import argparse
 import subprocess
 from itertools import chain
+import configparser
+from pathlib import Path
 
-"""Configure many builds for glibc.
+"""
+glibc-tools.py is a script that configures, build, and check multiple
+glibc builds using different compilers targerting different architectures.
 """
 
-# TODO: read from a file
-PATHS = {
-  "srcdir"    : "/home/azanella/Projects/glibc/glibc-git",
-  "builddir"  : "/home/azanella/Projects/glibc/build",
-  "logsdir"   : "/home/azanella/Projects/glibc/logs",
-  "compilers" : "/opt/cross"
-}
+PATHS = {}
 
+def read_config():
+  config = configparser.RawConfigParser()
+  cfgpath = str(Path.home()) + "/.glibc-tools.ini"
+  config.read(cfgpath)
+  if 'glibc-tools' not in config.sections() \
+     or 'srcdir' not in config['glibc-tools'] \
+     or 'builddir' not in config['glibc-tools'] \
+     or 'logsdir' not in config['glibc-tools'] \
+     or 'compilers' not in config['glibc-tools']:
+    print("error: config invalid, run glibc-tools-config.py")
+    sys.exit(1)
+  global PATHS
+  PATHS = config._sections['glibc-tools']
 
 def remove_dirs(*args):
   """Remove directories and their contents if they exist."""
@@ -430,6 +441,8 @@ SPECIAL_LISTS = {
 }
 
 def main(argv):
+  read_config ()
+
   parser = get_parser()
   opts = parser.parse_args(argv)
 
@@ -443,7 +456,6 @@ def main(argv):
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
 
   ctx.run(opts.action, configs)
-
 
 if __name__ == "__main__":
   main(sys.argv[1:])
