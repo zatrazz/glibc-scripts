@@ -7,10 +7,25 @@ import subprocess
 import fnmatch
 import tempfile
 from itertools import chain
+import configparser
+from pathlib import Path
 
-PATHS = {
-  "compilers" : "/opt/cross"
-}
+PATHS = {}
+
+def read_config():
+  config = configparser.RawConfigParser()
+  cfgpath = str(Path.home()) + "/.glibc-tools.ini"
+  config.read(cfgpath)
+  if 'glibc-tools' not in config.sections() \
+     or 'srcdir' not in config['glibc-tools'] \
+     or 'builddir' not in config['glibc-tools'] \
+     or 'logsdir' not in config['glibc-tools'] \
+     or 'compilers' not in config['glibc-tools']:
+    print("error: config invalid, run glibc-tools-config.py")
+    sys.exit(1)
+  global PATHS
+  PATHS = config._sections['glibc-tools']
+
 
 def recursive_glob(rootdir='.', pattern='*'):
   matches = []
@@ -106,8 +121,8 @@ class Context(object):
 
   def run_strip(self, base, patched, cfg, c):
     strip = PATHS["compilers"] + "/" + cfg.name + "/bin/" + cfg.triplet + "-strip"
-    basefiles  = recursive_glob(base + "/" + c, "*.so")
-    patchfiles = recursive_glob(patched + "/" + c, "*.so")
+    basefiles  = recursive_glob(PATHS["builddir"] + "/" + base, "*.so")
+    patchfiles = recursive_glob(PATHS["builddir"] + "/" + patched, "*.so")
     for b,p in zip(basefiles, patchfiles):
       if subprocess.call([strip, b], shell=False) != 0:
         print ("error: %s %s failed" % (strip, b))
@@ -117,8 +132,8 @@ class Context(object):
 
   def run_objdump_diff(self, base, patched, tofile, cfg, c):
     objdump = PATHS["compilers"] + "/" + cfg.name + "/bin/" + cfg.triplet + "-objdump"
-    basefiles  = recursive_glob(base + "/" + c, "*.so")
-    patchfiles = recursive_glob(patched + "/" + c, "*.so")
+    basefiles  = recursive_glob(PATHS["builddir"] + "/" + base, "*.so")
+    patchfiles = recursive_glob(PATHS["builddir"] + "/" + patched, "*.so")
       
     mode = None
     for b,p in zip(basefiles, patchfiles):
@@ -164,7 +179,7 @@ def get_parser():
   parser.add_argument('patched',
                       help='patched folder')
   parser.add_argument('configs',
-                      help='Configurations to build (ex. x86_64-linux-gnu)',
+                      help='configurations to use (ex. x86_64-linux-gnu)',
                       nargs='*')
   return parser
 
@@ -179,6 +194,8 @@ SPECIAL_LISTS = {
 }
 
 def main(argv):
+  read_config ()
+
   parser = get_parser()
   opts = parser.parse_args(argv)
   ctx = Context()
