@@ -114,7 +114,7 @@ class JobControl:
 
 class Context(object):
   def __init__(self, parallelize, run_built_tests, keep, tunables, stackprot,
-               multiarch):
+               multiarch, werror):
     """Initialize the context."""                                                       
     self.parallelize = parallelize[0]
     self.build_jobs = parallelize[1]
@@ -128,6 +128,8 @@ class Context(object):
       self.extra_config_opts.append("--enable-stack-protector=all")
     if multiarch == False:
       self.extra_config_opts.append("--disable-multi-arch")
+    if werror == True:
+      self.extra_config_opts.append("--disable-werror")
 
     self.srcdir = PATHS["srcdir"]
     self.builddir = PATHS["builddir"]
@@ -421,6 +423,9 @@ def get_parser():
   parser.add_argument('--noifunc', dest='enable_multiarch',
                       help='Disable ifunc',
                       action='store_false', default=True)
+  parser.add_argument('--nowerror', dest='disable_werror',
+                      help='Disable -Werror',
+                      action='store_true', default=False)
   parser.add_argument('action',
                       help='What to do',
                       choices=('configure', 'build', 'check', 'check-abi'))
@@ -448,10 +453,11 @@ def main(argv):
 
   ctx = Context(opts.parallelize,
 		"yes" if opts.run_built_tests else "no",
-		opts.keep,
-		opts.enable_tunables,
-		opts.enable_stackprot,
-		opts.enable_multiarch)
+                opts.keep,
+                opts.enable_tunables,
+                opts.enable_stackprot,
+                opts.enable_multiarch,
+                opts.disable_werror)
 
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
 
