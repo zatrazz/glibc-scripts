@@ -247,6 +247,8 @@ class Context(object):
                     os_name='linux-gnu')
     self.add_config(arch='ia64',
                     os_name='linux-gnu')
+    self.add_config(arch='i686',
+                    os_name='gnu')
     self.add_config(arch='m68k',
                     os_name='linux-gnu')
     #self.add_config(arch='m68k',
@@ -377,6 +379,8 @@ class Glibc(object):
            'RANLIB=%s' % self.tool_name('ranlib'),
            'READELF=%s' % self.tool_name('readelf'),
            'STRIP=%s' % self.tool_name('strip')]
+    if self.os == 'gnu':
+       cmd += ['MIG=%s' % self.tool_name('mig')]
     cmd = cmd + extra_config_opts
     cmd += self.cfg
     return cmd
