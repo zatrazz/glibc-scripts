@@ -302,10 +302,6 @@ class Context(object):
                     glibcs=[{'ccopts' : "-mcpu=niagara"},
                             {'arch': 'sparcv9',
                              'ccopts': '-m32 -mlong-double-128'}])
-    self.add_config(arch='tilegx',
-                    os_name='linux-gnu',
-                    glibcs=[{},
-                            {'variant': '32', 'ccopts': '-m32'}])
     self.add_config(arch='tilepro',
                     os_name='linux-gnu')
     self.add_config(arch='x86_64',
@@ -446,7 +442,7 @@ SPECIAL_LISTS = {
             "powerpc64-linux-gnu", "powerpc-linux-gnu", "powerpc-linux-gnuspe",
             "riscv64-linux-gnu", "s390-linux-gnu", "s390x-linux-gnu",
             "sh4-linux-gnu", "sparc64-linux-gnu", "sparcv9-linux-gnu",
-            "tilegx-linux-gnu", "x86_64-linux-gnu", "x86_64-linux-gnu-x32" ]
+            "x86_64-linux-gnu", "x86_64-linux-gnu-x32" ]
 }
 
 def main(argv):
