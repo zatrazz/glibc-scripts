@@ -440,7 +440,7 @@ def get_parser():
 
 SPECIAL_LISTS = {
   "abi" : [ "aarch64-linux-gnu", "alpha-linux-gnu", "armv7-linux-gnueabihf",
-            "hppa-linux-gnu", "i686-linux-gnu", "ia64-linux-gnu",
+            "hppa-linux-gnu", "i686-gnu", "i686-linux-gnu", "ia64-linux-gnu",
             "m68k-linux-gnu", "microblaze-linux-gnu", "mips64-linux-gnu",
             "mips64-n32-linux-gnu", "mips-linux-gnu", "nios2-linux-gnu",
             "powerpc64-linux-gnu", "powerpc-linux-gnu", "powerpc-linux-gnuspe",
