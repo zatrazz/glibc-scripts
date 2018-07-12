@@ -82,6 +82,7 @@ class Job:
     self.build = None
     self.check = None
     self.check_abi = None
+    self.update_abi = None
 
   def __repr__(self):
     return self.arch
@@ -165,6 +166,10 @@ class Context(object):
         job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
         job.build = self.glibc_configs[c].build()
         job.check_abi = self.glibc_configs[c].check_abi()
+      if action == "update-abi":
+        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
+        job.build = self.glibc_configs[c].build()
+        job.update_abi = self.glibc_configs[c].update_abi()
 
       jobs.append(job)
 
@@ -193,6 +198,12 @@ class Context(object):
       jobctrl = JobControl('check-abi')
       for job in batch:
         jobctrl.queue_job(job.arch, job.check_abi)
+      jobctrl.wait_queue()
+
+    for batch in jobsbatch:
+      jobctrl = JobControl('update-abi')
+      for job in batch:
+        jobctrl.queue_job(job.arch, job.update_abi)
       jobctrl.wait_queue()
 
 
@@ -396,6 +407,11 @@ class Glibc(object):
             'check-abi',
 	    '-j%d' % (self.ctx.build_jobs)]
 
+  def update_abi(self):
+    return ['make',
+            'update-abi',
+	    '-j%d' % (self.ctx.build_jobs)]
+
 
 def parallelize_type(string):
   fields = string.split(':')
@@ -428,21 +444,42 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('action',
                       help='What to do',
-                      choices=('configure', 'build', 'check', 'check-abi'))
+                      choices=('configure', 'build', 'check', 'check-abi',
+                               'update-abi'))
   parser.add_argument('configs',
                       help='Configurations to build (ex. x86_64-linux-gnu)',
                       nargs='*')
   return parser
 
 SPECIAL_LISTS = {
-  "abi" : [ "aarch64-linux-gnu", "alpha-linux-gnu", "armv7-linux-gnueabihf",
-            "hppa-linux-gnu", "i686-gnu", "i686-linux-gnu", "ia64-linux-gnu",
-            "m68k-linux-gnu", "microblaze-linux-gnu", "mips64-linux-gnu",
-            "mips64-n32-linux-gnu", "mips-linux-gnu", "nios2-linux-gnu",
-            "powerpc64-linux-gnu", "powerpc-linux-gnu", "powerpc-linux-gnuspe",
-            "riscv64-linux-gnu", "s390-linux-gnu", "s390x-linux-gnu",
-            "sh4-linux-gnu", "sparc64-linux-gnu", "sparcv9-linux-gnu",
-            "x86_64-linux-gnu", "x86_64-linux-gnu-x32" ]
+  "abi" : [
+    "aarch64-linux-gnu",
+    "alpha-linux-gnu",
+    "arm-linux-gnueabihf",
+    "hppa-linux-gnu",
+    "i686-linux-gnu",
+    "ia64-linux-gnu",
+    "m68k-linux-gnu",
+    "microblaze-linux-gnu",
+    "mips64-linux-gnu",
+    "mips64-n32-linux-gnu",
+    "mips-linux-gnu",
+    "nios2-linux-gnu",
+    "powerpc64le-linux-gnu",
+    "powerpc64-linux-gnu",
+    "powerpc-linux-gnu",
+    "powerpc-linux-gnuspe",
+    "riscv64-linux-gnu",
+    "s390-linux-gnu",
+    "s390x-linux-gnu",
+    "sh4-linux-gnu",
+    "sparc64-linux-gnu",
+    "sparcv9-linux-gnu",
+    "x86_64-linux-gnu",
+    "x86_64-linux-gnu-x32"
+
+    "i686-gnu",
+  ]
 }
 
 def main(argv):
