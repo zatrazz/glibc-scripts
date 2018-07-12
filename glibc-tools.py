@@ -262,9 +262,9 @@ class Context(object):
                     os_name='gnu')
     self.add_config(arch='m68k',
                     os_name='linux-gnu')
-    #self.add_config(arch='m68k',
-    #                os_name='linux-gnu',
-    #                variant='coldfire')
+    self.add_config(arch='m68k',
+                    os_name='linux-gnu',
+                    variant='coldfire')
     self.add_config(arch='microblaze',
                     os_name='linux-gnu')
     #self.add_config(arch='microblazeel',
@@ -291,6 +291,9 @@ class Context(object):
                             {'variant': 'power4', 'ccopts': '-mcpu=power4', 'cfg' : ["--with-cpu=power4"]}])
     self.add_config(arch='powerpc',
                     os_name='linux-gnuspe')
+    self.add_config(arch='powerpc',
+                    os_name='linux-gnu',
+                    variant='soft')
     self.add_config(arch='powerpc64',
                     os_name='linux-gnu')
     self.add_config(arch='powerpc64le',
@@ -460,6 +463,7 @@ SPECIAL_LISTS = {
     "i686-linux-gnu",
     "ia64-linux-gnu",
     "m68k-linux-gnu",
+    "m68k-linux-gnu-coldfire",
     "microblaze-linux-gnu",
     "mips64-linux-gnu",
     "mips64-n32-linux-gnu",
@@ -468,6 +472,7 @@ SPECIAL_LISTS = {
     "powerpc64le-linux-gnu",
     "powerpc64-linux-gnu",
     "powerpc-linux-gnu",
+    "powerpc-linux-gnu-soft",
     "powerpc-linux-gnuspe",
     "riscv64-linux-gnu",
     "s390-linux-gnu",
