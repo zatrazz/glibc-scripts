@@ -230,6 +230,9 @@ class Context(object):
                   ' -fno-isolate-erroneous-paths-attribute')
     self.add_config(arch='aarch64',
                     os_name='linux-gnu')
+    self.add_config(arch='aarch64',
+                    os_name='linux-gnu',
+                    variant='ilp32')
     #self.add_config(arch='aarch64_be',
     #                os_name='linux-gnu')
     self.add_config(arch='alpha',
