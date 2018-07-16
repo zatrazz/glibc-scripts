@@ -276,6 +276,11 @@ class Context(object):
                              'ccopts': '-mabi=32'},
                             {'arch': 'mips64',
                              'ccopts': '-mabi=64'}])
+    self.add_config(arch='mips64',
+                    os_name='linux-gnu',
+                    variant='soft',
+                    glibcs=[{'arch': 'mips', 'variant' : 'soft',
+                             'ccopts': '-mabi=32'}])
     #self.add_config(arch='mips64el',
     #                os_name='linux-gnu',
     #                glibcs=[{'variant': 'n32'},
@@ -468,6 +473,7 @@ SPECIAL_LISTS = {
     "mips64-linux-gnu",
     "mips64-n32-linux-gnu",
     "mips-linux-gnu",
+    "mips-linux-gnu-soft",
     "nios2-linux-gnu",
     "powerpc64le-linux-gnu",
     "powerpc64-linux-gnu",
@@ -481,7 +487,7 @@ SPECIAL_LISTS = {
     "sparc64-linux-gnu",
     "sparcv9-linux-gnu",
     "x86_64-linux-gnu",
-    "x86_64-linux-gnu-x32"
+    "x86_64-linux-gnu-x32",
 
     "i686-gnu",
   ]
