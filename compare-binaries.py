@@ -81,25 +81,29 @@ def run_objdump_diff(file1, file2, symbol):
                        '--start-address=0x%x' % range2[0],
                        '--stop-address=0x%x' % range2[1] ]
 
-
   mode = None
   try:
-    tmpb = tempfile.NamedTemporaryFile(delete=False)
-    outb = subprocess.check_output([objdump, "-d", file1] + objdump_args1)
-    tmpb.write(outb)
+    tmp1 = tempfile.NamedTemporaryFile()
+    out1 = subprocess.check_output([objdump, "-d", file1] + objdump_args1)
+    tmp1.write(out1)
+    tmp1.flush()
 
-    tmpp = tempfile.NamedTemporaryFile(delete=False)
-    outp = subprocess.check_output([objdump, "-d", file2] + objdump_args2)
-    tmpp.write(outp)
+    tmp2 = tempfile.NamedTemporaryFile()
+    out2 = subprocess.check_output([objdump, "-d", file2] + objdump_args2)
+    tmp2.write(out2)
+    tmp2.flush()
 
-    diffp = subprocess.Popen(["diff", "-y", tmpb.name, tmpp.name],
+    diffp = subprocess.Popen(["diff", "-y", tmp1.name, tmp2.name],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     diff, err = diffp.communicate()
     sys.stdout.buffer.write(diff)
-    tmpb.close()
-    tmpb.close()
+
   except subprocess.CalledProcessError as e:
     print ("error: %s failed" % (e.cmd))
+
+  finally:
+    tmp1.close()
+    tmp2.close()
 
 
 def parser_arguments(argv):
