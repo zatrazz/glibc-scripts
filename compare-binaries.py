@@ -41,9 +41,11 @@ def tool_path(arch, tool):
          + architectures[arch][1] + '-' + tool
 
 def symbol_in_list(symbol, symbols):
-  r = re.compile(r'.*\b' + symbol + r'\b')
+  rgx = r'.*' + symbol + r'[^\.]+'
+  r = re.compile(rgx)
   for s in list(filter(None.__ne__, [r.search(s) for s in symbols ])):
     fields = s.group(0).split()
+    print(fields)
     start = int(fields[0], 16)
     size  = int(fields[1], 16)
     return [ start, start + size ]
