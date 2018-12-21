@@ -43,7 +43,7 @@ def remove_recreate_dirs(*args):
 
 def create_file(filename):
   os.makedirs(os.path.dirname(filename), exist_ok=True)
-  return open(filename, "w+");
+  return open(filename, "w");
 
 # TODO: modularize
 def build_triplet():
