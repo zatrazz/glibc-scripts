@@ -6,11 +6,22 @@ import shutil
 import argparse
 import subprocess
 import tempfile
+import configparser
+from pathlib import Path
 from itertools import chain
 
-PATHS = {
-  "compilers" : "/opt/cross"
-}
+PATHS = {}
+
+def read_config():
+  config = configparser.RawConfigParser()
+  cfgpath = str(Path.home()) + "/.glibc-tools.ini"
+  config.read(cfgpath)
+  if 'glibc-tools' not in config.sections() \
+    or 'compilers' not in config['glibc-tools']:
+    print("error: config invalid, run glibc-tools-config.py")
+    sys.exit(1)
+  global PATHS
+  PATHS = config._sections['glibc-tools']
 
 ABIS = { "aarch64"    : "aarch64",
          "alpha"      : "alpha",
@@ -33,7 +44,6 @@ ABIS = { "aarch64"    : "aarch64",
          "sh4"        : "sh4",
          "sparc64"    : "sparc64",
          "sparcv9"    : "sparc64 -m32",
-         "tilegx"     : "tilegx",
          "x86_64"     : "x86_64",
          "x86_64-x32" : "x86_64 -mx32"
 }
@@ -77,25 +87,52 @@ def build_check(compiler, sysfile):
     return "FAIL"
   return "OK"
 
-def check_syscall(syscalls):
-  for syscall in syscalls:
+def check_syscall(args):
+  for syscall in args.syscalls:
     sysfile = create_temp_file(syscall)
     print ("SYSCALL: %s" % syscall)
     for abi in sorted(ABIS.keys()):
-      compiler = get_compiler_path(abi)
-      print ("  %20s: %s" % (abi, build_check(compiler, sysfile)))
+      try:
+        compiler = get_compiler_path(abi)
+        print ("  %20s: %s" % (abi, build_check(compiler, sysfile)))
+      except:
+        print ("  %20s: compiler not found" % abi)
+
+def check_file(args):
+  for prog in args.programs:
+    try:
+      sysfile = open(prog, 'r')
+    except:
+      print ("FAIL: file %s can not be opened" % (prog))
+      return
+    print ("FILE: %s" % prog)
+    for abi in sorted(ABIS.keys()):
+      try:
+        compiler = get_compiler_path(abi)
+        print ("  %20s: %s" % (abi, build_check(compiler, sysfile)))
+      except:
+        print ("  %20s: compiler not found" % abi)
 
 def get_parser():
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('syscalls',
-                      help='syscall to check (ex. openat)',
-                      nargs='*')
+  subparsers = parser.add_subparsers(help='Functions')
+  parser_1 = subparsers.add_parser('syscall', help='syscall to check (ex. openat)')
+  parser_1.add_argument('syscalls',
+                        help='syscall to check (ex. openat)',
+                        nargs='*')
+  parser_1.set_defaults(func=check_syscall)
+  parser_2 = subparsers.add_parser('program', help='program to run')
+  parser_2.add_argument('programs',
+                        help='file to build',
+                        nargs='*')
+  parser_2.set_defaults(func=check_file)
   return parser
 
 def main(argv):
+  read_config()
   parser = get_parser()
-  opts = parser.parse_args(argv)
-  check_syscall(opts.syscalls)
+  args = parser.parse_args(argv)
+  args.func(args)
 
 if __name__ == "__main__":
   main(sys.argv[1:])
