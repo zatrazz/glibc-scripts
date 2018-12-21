@@ -33,7 +33,8 @@ def elf_architecture(filename):
 
 def tool_path(arch, tool):
   architectures = {
-    "ARM aarch64" : [ "aarch64-linux-gnu", "aarch64-glibc-linux-gnu" ]
+    "ARM aarch64" : [ "aarch64-linux-gnu", "aarch64-glibc-linux-gnu" ],
+    "x86-64"      : [ "x86_64-linux-gnu",  "x86_64-glibc-linux-gnu" ]
   };
   if not arch in architectures:
     return None
