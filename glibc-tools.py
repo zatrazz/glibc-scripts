@@ -312,6 +312,11 @@ class Context(object):
                     os_name='linux-gnu',
                     glibcs=[{},
                             {'arch': 's390', 'ccopts': '-m31'}])
+    self.add_config(arch='csky',
+                    os_name='linux-gnuabiv2',
+                    variant='soft')
+    self.add_config(arch='csky',
+                    os_name='linux-gnuabiv2')
     self.add_config(arch='sh4',
                     os_name='linux-gnu',
                     #glibcs=[{'ccopts': no_isolate},
@@ -467,6 +472,8 @@ SPECIAL_LISTS = {
     "aarch64-linux-gnu",
     "alpha-linux-gnu",
     "arm-linux-gnueabihf",
+    "csky-linux-gnuabiv2",
+    "csky-linux-gnuabiv2-soft",
     "hppa-linux-gnu",
     "i686-linux-gnu",
     "ia64-linux-gnu",
@@ -482,7 +489,6 @@ SPECIAL_LISTS = {
     "powerpc64-linux-gnu",
     "powerpc-linux-gnu",
     "powerpc-linux-gnu-soft",
-    "powerpc-linux-gnuspe",
     "riscv64-linux-gnu",
     "s390-linux-gnu",
     "s390x-linux-gnu",
