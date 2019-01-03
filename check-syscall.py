@@ -132,7 +132,10 @@ def main(argv):
   read_config()
   parser = get_parser()
   args = parser.parse_args(argv)
-  args.func(args)
+  try:
+    args.func(args)
+  except:
+    parser.print_help()
 
 if __name__ == "__main__":
   main(sys.argv[1:])
