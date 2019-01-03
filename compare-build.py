@@ -74,6 +74,8 @@ class Context(object):
                     glibcs=[{'arch' : 'armv7'},
 			    {'arch' : 'armv7-neon'},
 			    {'arch' : 'armv7-neonhard'}])
+    self.add_config(arch='csky',
+                    os_name='linux-gnuabiv2')
     self.add_config(arch='hppa',
                     os_name='linux-gnu')
     self.add_config(arch='ia64',
@@ -95,6 +97,8 @@ class Context(object):
                     os_name='linux-gnu')
     self.add_config(arch='powerpc64le',
                     os_name='linux-gnu')
+    self.add_config(arch='riscv64',
+                    os_name='linux-gnu')
     self.add_config(arch='s390x',
                     os_name='linux-gnu',
                     glibcs=[{'arch': 's390'}])
@@ -115,14 +119,14 @@ class Context(object):
     if not abis:
       abis = sorted(self.configs.keys())
     for c in abis:
+      basefiles  = recursive_glob(base, "*.so")
+      patchfiles = recursive_glob(patched, "*.so")
       if strip is True:
-        self.run_strip (base, patched, self.configs[c], c)
-      self.run_objdump_diff (base, patched, tofile, self.configs[c], c)
+        self.run_strip (basefiles, patchfiles, self.configs[c], c)
+      self.run_objdump_diff (basefiles, patchfiles, tofile, self.configs[c], c)
 
-  def run_strip(self, base, patched, cfg, c):
+  def run_strip(self, basefiles, patchfiles, cfg, c):
     strip = PATHS["compilers"] + "/" + cfg.name + "/bin/" + cfg.triplet + "-strip"
-    basefiles  = recursive_glob(PATHS["builddir"] + "/" + base, "*.so")
-    patchfiles = recursive_glob(PATHS["builddir"] + "/" + patched, "*.so")
     for b,p in zip(basefiles, patchfiles):
       if subprocess.call([strip, b], shell=False) != 0:
         print ("error: %s %s failed" % (strip, b))
@@ -130,10 +134,8 @@ class Context(object):
         print ("error: %s %s failed" % (strip, p))
     print("info: strip %s done" % (c))
 
-  def run_objdump_diff(self, base, patched, tofile, cfg, c):
+  def run_objdump_diff(self, basefiles, patchfiles, tofile, cfg, c):
     objdump = PATHS["compilers"] + "/" + cfg.name + "/bin/" + cfg.triplet + "-objdump"
-    basefiles  = recursive_glob(PATHS["builddir"] + "/" + base, "*.so")
-    patchfiles = recursive_glob(PATHS["builddir"] + "/" + patched, "*.so")
       
     mode = None
     for b,p in zip(basefiles, patchfiles):
