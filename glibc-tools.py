@@ -229,9 +229,9 @@ class Context(object):
                   ' -fno-isolate-erroneous-paths-attribute')
     self.add_config(arch='aarch64',
                     os_name='linux-gnu')
-    self.add_config(arch='aarch64',
-                    os_name='linux-gnu',
-                    variant='ilp32')
+    #self.add_config(arch='aarch64',
+    #                os_name='linux-gnu',
+    #                variant='ilp32')
     #self.add_config(arch='aarch64_be',
     #                os_name='linux-gnu')
     self.add_config(arch='alpha',
@@ -297,8 +297,6 @@ class Context(object):
                     glibcs=[{},
                             {'variant': 'power4', 'ccopts': '-mcpu=power4', 'cfg' : ["--with-cpu=power4"]}])
     self.add_config(arch='powerpc',
-                    os_name='linux-gnuspe')
-    self.add_config(arch='powerpc',
                     os_name='linux-gnu',
                     variant='soft')
     self.add_config(arch='powerpc64',
@@ -306,7 +304,8 @@ class Context(object):
     self.add_config(arch='powerpc64le',
                     os_name='linux-gnu')
     self.add_config(arch='riscv64',
-                    os_name='linux-gnu')
+                    os_name='linux-gnu',
+                    variant='rv64imafdc-lp64d')
     self.add_config(arch='s390x',
                     os_name='linux-gnu',
                     glibcs=[{},
@@ -318,7 +317,6 @@ class Context(object):
                     os_name='linux-gnuabiv2')
     self.add_config(arch='sh4',
                     os_name='linux-gnu',
-                    #glibcs=[{'ccopts': no_isolate},
                     glibcs=[{},
                             {'variant': 'soft',
                              'cfg': ['--without-fp'],
@@ -328,8 +326,6 @@ class Context(object):
                     glibcs=[{'ccopts' : "-mcpu=niagara"},
                             {'arch': 'sparcv9',
                              'ccopts': '-m32 -mlong-double-128'}])
-    self.add_config(arch='tilepro',
-                    os_name='linux-gnu')
     self.add_config(arch='x86_64',
                     os_name='linux-gnu',
                     glibcs=[{},
@@ -472,7 +468,6 @@ SPECIAL_LISTS = {
     "alpha-linux-gnu",
     "arm-linux-gnueabihf",
     "csky-linux-gnuabiv2",
-    "csky-linux-gnuabiv2-soft",
     "hppa-linux-gnu",
     "i686-linux-gnu",
     "ia64-linux-gnu",
@@ -488,7 +483,7 @@ SPECIAL_LISTS = {
     "powerpc64-linux-gnu",
     "powerpc-linux-gnu",
     "powerpc-linux-gnu-soft",
-    "riscv64-linux-gnu",
+    "riscv64-linux-gnu-rv64imafdc-lp64d",
     "s390-linux-gnu",
     "s390x-linux-gnu",
     "sh4-linux-gnu",
