@@ -82,6 +82,7 @@ class Job:
     self.check = None
     self.check_abi = None
     self.update_abi = None
+    self.bench_build = None
 
   def __repr__(self):
     return self.arch
@@ -169,6 +170,10 @@ class Context(object):
         job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
         job.build = self.glibc_configs[c].build()
         job.update_abi = self.glibc_configs[c].update_abi()
+      if action == "bench-build":
+        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
+        job.build = self.glibc_configs[c].build()
+        job.bench_build = self.glibc_configs[c].bench_build()
 
       jobs.append(job)
 
@@ -205,6 +210,11 @@ class Context(object):
         jobctrl.queue_job(job.arch, job.update_abi)
       jobctrl.wait_queue()
 
+    for batch in jobsbatch:
+      jobctrl = JobControl('bench-build')
+      for job in batch:
+        jobctrl.queue_job(job.arch, job.bench_build)
+      jobctrl.wait_queue()
 
   def add_config(self, **args):
     """Add an individual build configuration."""
@@ -423,6 +433,11 @@ class Glibc(object):
             'update-abi',
 	    '-j%d' % (self.ctx.build_jobs)]
 
+  def bench_build(self):
+    return ['make',
+            'bench-build',
+	    '-j%d' % (self.ctx.build_jobs)]
+
 
 def parallelize_type(string):
   fields = string.split(':')
@@ -456,7 +471,7 @@ def get_parser():
   parser.add_argument('action',
                       help='What to do',
                       choices=('configure', 'build', 'check', 'check-abi',
-                               'update-abi'))
+                               'update-abi', 'bench-build'))
   parser.add_argument('configs',
                       help='Configurations to build (ex. x86_64-linux-gnu)',
                       nargs='*')
