@@ -5,6 +5,7 @@ import os
 import shutil
 import argparse
 import subprocess
+import platform
 from itertools import chain
 import configparser
 from pathlib import Path
@@ -45,10 +46,8 @@ def create_file(filename):
   os.makedirs(os.path.dirname(filename), exist_ok=True)
   return open(filename, "w");
 
-# TODO: modularize
 def build_triplet():
-  return "x86_64-linux-gnu"
-
+  return platform.machine() + "-linux-gnu"
 
 class Config(object):
   """A configuration for building a compiler and associated libraries."""
