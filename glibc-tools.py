@@ -116,7 +116,6 @@ class JobControl:
 class Context(object):
   def __init__(self, parallelize, run_built_tests, keep, tunables, stackprot,
                multiarch, werror):
-    """Initialize the context."""                                                       
     self.parallelize = parallelize[0]
     self.build_jobs = parallelize[1]
 
@@ -136,7 +135,7 @@ class Context(object):
     self.builddir = PATHS["builddir"]
     self.logsdir = PATHS["logsdir"]
     self.keep = keep
-    self.status_log_list = []  
+    self.status_log_list = []
     self.glibc_configs = {}
     self.configs = {}
     self.add_all_configs()
