@@ -551,7 +551,6 @@ SPECIAL_LISTS = {
   ],
 
   "powerpc64": [
-    "powerpc64-linux-gnu-power9",
     "powerpc64-linux-gnu-power8",
     "powerpc64-linux-gnu-power7",
     "powerpc64-linux-gnu-power6",
@@ -568,7 +567,6 @@ SPECIAL_LISTS = {
   ],
 
   "powerpc": [
-    "powerpc-linux-gnu-power9",
     "powerpc-linux-gnu-power8",
     "powerpc-linux-gnu-power7",
     "powerpc-linux-gnu-power6",
