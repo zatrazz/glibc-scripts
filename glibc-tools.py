@@ -53,7 +53,7 @@ class Config(object):
   """A configuration for building a compiler and associated libraries."""
 
   def __init__(self, ctx, arch, os_name, variant=None, glibcs=None,
-	       extra_glibcs=None):
+               extra_glibcs=None):
     """Initialize a Config object."""
     self.ctx = ctx
     self.arch = arch
@@ -254,13 +254,13 @@ class Context(object):
     self.add_config(arch='arm',
                     os_name='linux-gnueabi',
                     glibcs=[{},
-			    {'arch' : 'armv7', 'ccopts': '-march=armv7-a'}])
+                            {'arch' : 'armv7', 'ccopts': '-march=armv7-a'}])
     self.add_config(arch='arm',
                     os_name='linux-gnueabihf',
                     glibcs=[{},
-			    {'arch' : 'armv7', 'ccopts': '-march=armv7-a'},
-			    {'arch' : 'armv7-neon', 'ccopts': '-march=armv7-a -mfpu=neon'},
-			    {'arch' : 'armv7-neonhard', 'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
+                            {'arch' : 'armv7', 'ccopts': '-march=armv7-a'},
+                            {'arch' : 'armv7-neon', 'ccopts': '-march=armv7-a -mfpu=neon'},
+                            {'arch' : 'armv7-neonhard', 'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
     #self.add_config(arch='armeb',
     #                os_name='linux-gnueabihf')
     #self.add_config(arch='armeb',
@@ -304,15 +304,47 @@ class Context(object):
                     os_name='linux-gnu')
     self.add_config(arch='powerpc',
                     os_name='linux-gnu',
-                    glibcs=[{},
-                            {'variant': 'power4', 'ccopts': '-mcpu=power4', 'cfg' : ["--with-cpu=power4"]}])
+                    variant='soft')
     self.add_config(arch='powerpc',
                     os_name='linux-gnu',
-                    variant='soft')
+                    glibcs=[{},
+                            {'variant': 'power4', 'ccopts': '-mcpu=power4', 'cfg' : ["--with-cpu=power4"]},
+                            {'variant': 'power5', 'ccopts': '-mcpu=power5', 'cfg' : ["--with-cpu=power5"]},
+                            {'variant': 'power6', 'ccopts': '-mcpu=power6', 'cfg' : ["--with-cpu=power6"]},
+                            {'variant': 'power7', 'ccopts': '-mcpu=power7', 'cfg' : ["--with-cpu=power7"]},
+                            {'variant': 'power8', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8"]},
+                            {'variant': 'power9', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9"]},
+                            {'variant': 'power4-disable-multi-arch', 'ccopts': '-mcpu=power4', 'cfg' : ["--with-cpu=power4", "--disable-multi-arch"]},
+                            {'variant': 'power5-disable-multi-arch', 'ccopts': '-mcpu=power5', 'cfg' : ["--with-cpu=power5", "--disable-multi-arch"]},
+                            {'variant': 'power6-disable-multi-arch', 'ccopts': '-mcpu=power6', 'cfg' : ["--with-cpu=power6", "--disable-multi-arch"]},
+                            {'variant': 'power7-disable-multi-arch', 'ccopts': '-mcpu=power7', 'cfg' : ["--with-cpu=power7", "--disable-multi-arch"]},
+                            {'variant': 'power8-disable-multi-arch', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8", "--disable-multi-arch"]},
+                            {'variant': 'power9-disable-multi-arch', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9", "--disable-multi-arch"]},
+                            {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]}])
     self.add_config(arch='powerpc64',
-                    os_name='linux-gnu')
+                    os_name='linux-gnu',
+                    glibcs=[{},
+                            {'variant': 'power4', 'ccopts': '-mcpu=power4', 'cfg' : ["--with-cpu=power4"]},
+                            {'variant': 'power5', 'ccopts': '-mcpu=power5', 'cfg' : ["--with-cpu=power5"]},
+                            {'variant': 'power6', 'ccopts': '-mcpu=power6', 'cfg' : ["--with-cpu=power6"]},
+                            {'variant': 'power7', 'ccopts': '-mcpu=power7', 'cfg' : ["--with-cpu=power7"]},
+                            {'variant': 'power8', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8"]},
+                            {'variant': 'power9', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9"]},
+                            {'variant': 'power4-disable-multi-arch', 'ccopts': '-mcpu=power4', 'cfg' : ["--with-cpu=power4", "--disable-multi-arch"]},
+                            {'variant': 'power5-disable-multi-arch', 'ccopts': '-mcpu=power5', 'cfg' : ["--with-cpu=power5", "--disable-multi-arch"]},
+                            {'variant': 'power6-disable-multi-arch', 'ccopts': '-mcpu=power6', 'cfg' : ["--with-cpu=power6", "--disable-multi-arch"]},
+                            {'variant': 'power7-disable-multi-arch', 'ccopts': '-mcpu=power7', 'cfg' : ["--with-cpu=power7", "--disable-multi-arch"]},
+                            {'variant': 'power8-disable-multi-arch', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8", "--disable-multi-arch"]},
+                            {'variant': 'power9-disable-multi-arch', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9", "--disable-multi-arch"]},
+                            {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]}])
     self.add_config(arch='powerpc64le',
-                    os_name='linux-gnu')
+                    os_name='linux-gnu',
+                    glibcs=[{},
+                            {'variant': 'power8', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8"]},
+                            {'variant': 'power9', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9"]},
+                            {'variant': 'power8-disable-multi-arch', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8", "--disable-multi-arch"]},
+                            {'variant': 'power9-disable-multi-arch', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9", "--disable-multi-arch"]},
+                            {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]}])
     self.add_config(arch='riscv64',
                     os_name='linux-gnu',
                     variant='rv64imafdc-lp64d')
@@ -415,28 +447,28 @@ class Glibc(object):
 
   def build(self):
     return ['make',
-	    '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.build_jobs)]
 
   def check(self):
     return ['make',
             'check',
             'run-built-tests=%s' % (self.ctx.run_built_tests),
-	    '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.build_jobs)]
 
   def check_abi(self):
     return ['make',
             'check-abi',
-	    '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.build_jobs)]
 
   def update_abi(self):
     return ['make',
             'update-abi',
-	    '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.build_jobs)]
 
   def bench_build(self):
     return ['make',
             'bench-build',
-	    '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.build_jobs)]
 
 
 def parallelize_type(string):
@@ -496,8 +528,8 @@ SPECIAL_LISTS = {
     "nios2-linux-gnu",
     "powerpc64le-linux-gnu",
     "powerpc64-linux-gnu",
+    "powerpc-linux-gnu-power4",
     "powerpc-linux-gnu",
-    "powerpc-linux-gnu-soft",
     "riscv64-linux-gnu-rv64imafdc-lp64d",
     "s390-linux-gnu",
     "s390x-linux-gnu",
@@ -508,6 +540,49 @@ SPECIAL_LISTS = {
     "x86_64-linux-gnu-x32",
 
     "i686-gnu",
+  ],
+
+  "powerpc64le" : [
+    "powerpc64le-linux-gnu",
+    "powerpc64le-linux-gnu-disable-multi-arch",
+    "powerpc64le-linux-gnu-power9",
+    "powerpc64le-linux-gnu-power8",
+    "powerpc64le-linux-gnu-power9-disable-multi-arch",
+    "powerpc64le-linux-gnu-power8-disable-multi-arch",
+  ],
+
+  "powerpc64": [
+    "powerpc64-linux-gnu-power9",
+    "powerpc64-linux-gnu-power8",
+    "powerpc64-linux-gnu-power7",
+    "powerpc64-linux-gnu-power6",
+    "powerpc64-linux-gnu-power5",
+    "powerpc64-linux-gnu-power4",
+    "powerpc64-linux-gnu-power9-disable-multi-arch",
+    "powerpc64-linux-gnu-power8-disable-multi-arch",
+    "powerpc64-linux-gnu-power7-disable-multi-arch",
+    "powerpc64-linux-gnu-power6-disable-multi-arch",
+    "powerpc64-linux-gnu-power5-disable-multi-arch",
+    "powerpc64-linux-gnu-power4-disable-multi-arch",
+    "powerpc64-linux-gnu",
+    "powerpc64-linux-gnu-disable-multi-arch",
+  ],
+
+  "powerpc": [
+    "powerpc-linux-gnu-power9",
+    "powerpc-linux-gnu-power8",
+    "powerpc-linux-gnu-power7",
+    "powerpc-linux-gnu-power6",
+    "powerpc-linux-gnu-power5",
+    "powerpc-linux-gnu-power4",
+    "powerpc-linux-gnu-power9-disable-multi-arch",
+    "powerpc-linux-gnu-power8-disable-multi-arch",
+    "powerpc-linux-gnu-power7-disable-multi-arch",
+    "powerpc-linux-gnu-power6-disable-multi-arch",
+    "powerpc-linux-gnu-power5-disable-multi-arch",
+    "powerpc-linux-gnu-power4-disable-multi-arch",
+    "powerpc-linux-gnu",
+    "powerpc-linux-gnu-disable-multi-arch",
   ]
 }
 
@@ -518,7 +593,7 @@ def main(argv):
   opts = parser.parse_args(argv)
 
   ctx = Context(opts.parallelize,
-		"yes" if opts.run_built_tests else "no",
+                'yes' if opts.run_built_tests else 'no',
                 opts.keep,
                 opts.enable_tunables,
                 opts.enable_stackprot,
