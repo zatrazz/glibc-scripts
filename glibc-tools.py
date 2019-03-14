@@ -46,8 +46,13 @@ def create_file(filename):
   os.makedirs(os.path.dirname(filename), exist_ok=True)
   return open(filename, "w");
 
+PLATFORM_MAP = { "ppc64le" : "powerpc64le" };
+
 def build_triplet():
-  return platform.machine() + "-linux-gnu"
+  platstr = platform.machine()
+  if platstr in PLATFORM_MAP:
+    platstr = PLATFORM_MAP[platstr];
+  return platstr + "-linux-gnu"
 
 class Config(object):
   """A configuration for building a compiler and associated libraries."""
