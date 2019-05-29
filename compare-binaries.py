@@ -29,17 +29,27 @@ def elf_architecture(filename):
   fields = fields.split(':')[1].split(',')
   if not fields[0].strip().startswith('ELF'):
     return None
-  return fields[1].strip()
+  return [fields[0].strip(), fields[1].strip()]
 
 def tool_path(arch, tool):
   architectures = {
-    "ARM aarch64" : [ "aarch64-linux-gnu", "aarch64-glibc-linux-gnu" ],
-    "x86-64"      : [ "x86_64-linux-gnu",  "x86_64-glibc-linux-gnu" ]
+    "ARM aarch64"                  : [ "aarch64-linux-gnu", "aarch64-glibc-linux-gnu" ],
+    "x86-64"                       : [ "x86_64-linux-gnu",  "x86_64-glibc-linux-gnu" ],
+    "64-bit PowerPC or cisco 7500" :
+      { "ELF 64-bit LSB shared object" : [ "powerpc64le-linux-gnu", "powerpc64le-glibc-linux-gnu" ],
+        "ELF 64-bit MSB shared object" : [ "powerpc64-linux-gnu",   "powerpc64-glibc-linux-gnu" ], }
   };
-  if not arch in architectures:
-    return None
-  return PATHS['compilers'] + '/' + architectures[arch][0] + '/bin/' \
-         + architectures[arch][1] + '-' + tool
+  if not arch[1] in architectures:
+    raise Exception("Architecture %s not support for tool %s" % (arch[1], tool))
+
+  if type(architectures[arch[1]][arch[0]]) is list:
+    prefix1 = architectures[arch[1]][arch[0]][0]
+    prefix2 = architectures[arch[1]][arch[0]][1]
+  else:
+    prefix1 = architectures[arch[1]][0]
+    prefix2 = architectures[arch[1]][1]
+
+  return PATHS['compilers'] + '/' + prefix1 + '/bin/' + prefix2 + '-' + tool
 
 def symbol_in_list(symbol, symbols):
   rgx = r'\b' + symbol + r'\b'
@@ -56,15 +66,16 @@ def symbol_in_list(symbol, symbols):
 def run_objdump_diff(file1, file2, symbol):
   arch1 = elf_architecture (file1)
   arch2 = elf_architecture (file2)
-  if arch1 != arch2:
-    print("error: ELF files have different architectures (%s, %s)" %
-          arch1, arch2)
-    return
   if not arch1 or not arch2:
     print("error: invalid input object file")
     return
+  if arch1[0] != arch2[0] or arch1[1] != arch2[1]:
+    print("error: ELF files have different architectures ([%s, %s], [%s, %s])" %
+          (arch1[0], arch2[0], arch1[1], arch2[1]))
+    return
 
   objdump = tool_path(arch1, 'objdump')
+  print (objdump)
   objdump_args1 = []
   objdump_args2 = []
 
