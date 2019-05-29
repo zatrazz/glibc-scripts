@@ -351,6 +351,7 @@ class Context(object):
                     glibcs=[{},
                             {'variant': 'power8', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8"]},
                             {'variant': 'power9', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9"]},
+                            {'variant': 'power7-disable-multi-arch', 'ccopts': '-mcpu=power7', 'cfg' : ["--with-cpu=power8", "--disable-multi-arch"]},
                             {'variant': 'power8-disable-multi-arch', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8", "--disable-multi-arch"]},
                             {'variant': 'power9-disable-multi-arch', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9", "--disable-multi-arch"]},
                             {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]}])
