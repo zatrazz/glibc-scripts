@@ -8,7 +8,7 @@ import subprocess
 import platform
 from itertools import chain
 import configparser
-from pathlib import Path
+from py3compat import *
 
 """
 glibc-tools.py is a script that configures, build, and check multiple
