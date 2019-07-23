@@ -377,6 +377,12 @@ class Context(object):
                             {'variant': 'soft',
                              'cfg': ['--without-fp'],
                              'ccopts': no_isolate}])
+    self.add_config(arch='sh4eb',
+                    os_name='linux-gnu',
+                    glibcs=[{},
+                            {'variant': 'soft',
+                             'cfg': ['--without-fp'],
+                             'ccopts': no_isolate}])
     self.add_config(arch='sparc64',
                     os_name='linux-gnu',
                     glibcs=[{'ccopts' : "-mcpu=niagara"},
@@ -550,6 +556,7 @@ SPECIAL_LISTS = {
     "s390-linux-gnu",
     "s390x-linux-gnu",
     "sh4-linux-gnu",
+    "sh4eb-linux-gnu",
     "sparc64-linux-gnu",
     "sparcv9-linux-gnu",
     "x86_64-linux-gnu",
