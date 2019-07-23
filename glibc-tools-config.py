@@ -3,7 +3,7 @@
 import sys
 import argparse
 import configparser
-from pathlib import Path
+from py3compat import *
 
 """
 glibc-tools configuration script, sets user config file for

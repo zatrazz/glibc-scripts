@@ -8,7 +8,7 @@ import subprocess
 import platform
 from itertools import chain
 import configparser
-from pathlib import Path
+from py3compat import *
 
 """
 glibc-tools.py is a script that configures, build, and check multiple
@@ -265,8 +265,12 @@ class Context(object):
                             {'arch' : 'armv7', 'ccopts': '-march=armv7-a'},
                             {'arch' : 'armv7-neon', 'ccopts': '-march=armv7-a -mfpu=neon'},
                             {'arch' : 'armv7-neonhard', 'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
-    #self.add_config(arch='armeb',
-    #                os_name='linux-gnueabihf')
+    self.add_config(arch='armeb',
+                    os_name='linux-gnueabihf',
+                    glibcs=[{},
+                            {'arch' : 'armebv7', 'ccopts': '-march=armv7-a'},
+                            {'arch' : 'armebv7-neon', 'ccopts': '-march=armv7-a -mfpu=neon'},
+                            {'arch' : 'armebv7-neonhard', 'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
     #self.add_config(arch='armeb',
     #                os_name='linux-gnueabihf',
     #                variant='be8')
@@ -283,8 +287,8 @@ class Context(object):
                     variant='coldfire')
     self.add_config(arch='microblaze',
                     os_name='linux-gnu')
-    #self.add_config(arch='microblazeel',
-    #                os_name='linux-gnu')
+    self.add_config(arch='microblazeel',
+                    os_name='linux-gnu')
     self.add_config(arch='mips64',
                     os_name='linux-gnu',
                     glibcs=[{'arch': 'mips64-n32'},
@@ -524,6 +528,7 @@ SPECIAL_LISTS = {
     "aarch64-linux-gnu",
     "alpha-linux-gnu",
     "arm-linux-gnueabihf",
+    "armeb-linux-gnueabihf",
     "csky-linux-gnuabiv2",
     "hppa-linux-gnu",
     "i686-linux-gnu",
@@ -531,6 +536,7 @@ SPECIAL_LISTS = {
     "m68k-linux-gnu",
     "m68k-linux-gnu-coldfire",
     "microblaze-linux-gnu",
+    "microblazeel-linux-gnu",
     "mips64-linux-gnu",
     "mips64-n32-linux-gnu",
     "mips-linux-gnu",
