@@ -37,7 +37,6 @@ ABIS = { "aarch64"    : "aarch64",
          "nios2"      : "nios2",
          "powerpc64"  : "powerpc64",
          "powerpc"    : "powerpc",
-         "powerpcspe" : "powerpc-gnuspe",
          "riscv64"    : "riscv64",
          "s390"       : "s390x -m31",
          "s390x"      : "s390x",
@@ -52,7 +51,7 @@ def get_compiler_path(abi):
   cfields = ABIS[abi].split()
   cprefix = cfields[0]
 
-  cprefields = cprefix.split('-')
+  cprefields = cprefix.split('-', 1)
   if len(cprefields) > 1:
     cprefix = cprefields[0]
     csuffix = cprefields[1]
