@@ -301,13 +301,13 @@ class Context(object):
                     variant='soft',
                     glibcs=[{'arch': 'mips', 'variant' : 'soft',
                              'ccopts': '-mabi=32'}])
-    #self.add_config(arch='mips64el',
-    #                os_name='linux-gnu',
-    #                glibcs=[{'variant': 'n32'},
-    #                         {'arch': 'mipsel',
-    #                          'ccopts': '-mabi=32'},
-    #                         {'variant': 'n64',
-    #                          'ccopts': '-mabi=64'}])
+    self.add_config(arch='mips64el',
+                    os_name='linux-gnu',
+                    glibcs=[{'arch': 'mips64el-n32'},
+                            {'arch': 'mipsel',
+                             'ccopts': '-mabi=32'},
+                            {'arch': 'mips64el',
+                             'ccopts': '-mabi=64'}])
     self.add_config(arch='nios2',
                     os_name='linux-gnu')
     self.add_config(arch='powerpc',
