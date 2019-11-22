@@ -495,35 +495,6 @@ def parallelize_type(string):
     return [ int(fields[0]), 1 ]
   return [ int(fields[0]), int(fields[1]) ]
 
-def get_parser():
-  parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('-p', dest='parallelize',
-                      help='Run a number of parallel build with make -j',
-                      type=parallelize_type, default="1:%s" % os.cpu_count())
-  parser.add_argument('-k', dest='keep',
-                      help='Keep old file and just run the command',
-                      action='store_true', default=False)
-  parser.add_argument('-t', dest='run_built_tests',
-                      help='Run built tests',
-                      action='store_true', default=False)
-  parser.add_argument('--stackprot', dest='enable_stackprot',
-                      help='Enable stack protection',
-                      action='store_true', default=False)
-  parser.add_argument('--noifunc', dest='enable_multiarch',
-                      help='Disable ifunc',
-                      action='store_false', default=True)
-  parser.add_argument('--nowerror', dest='disable_werror',
-                      help='Disable -Werror',
-                      action='store_true', default=False)
-  parser.add_argument('action',
-                      help='What to do',
-                      choices=('configure', 'build', 'check', 'check-abi',
-                               'update-abi', 'bench-build'))
-  parser.add_argument('configs',
-                      help='Configurations to build (ex. x86_64-linux-gnu)',
-                      nargs='*')
-  return parser
-
 SPECIAL_LISTS = {
   "abi" : [
     "aarch64-linux-gnu",
@@ -606,6 +577,36 @@ SPECIAL_LISTS = {
     "powerpc-linux-gnu",
   ]
 }
+
+def get_parser():
+  parser = argparse.ArgumentParser(description=__doc__)
+  parser.add_argument('-p', dest='parallelize',
+                      help='Run a number of parallel build with make -j',
+                      type=parallelize_type, default="1:%s" % os.cpu_count())
+  parser.add_argument('-k', dest='keep',
+                      help='Keep old file and just run the command',
+                      action='store_true', default=False)
+  parser.add_argument('-t', dest='run_built_tests',
+                      help='Run built tests',
+                      action='store_true', default=False)
+  parser.add_argument('--stackprot', dest='enable_stackprot',
+                      help='Enable stack protection',
+                      action='store_true', default=False)
+  parser.add_argument('--noifunc', dest='enable_multiarch',
+                      help='Disable ifunc',
+                      action='store_false', default=True)
+  parser.add_argument('--nowerror', dest='disable_werror',
+                      help='Disable -Werror',
+                      action='store_true', default=False)
+  parser.add_argument('action',
+                      help='What to do',
+                      choices=('configure', 'build', 'check', 'check-abi',
+                               'update-abi', 'bench-build'))
+  parser.add_argument('configs',
+                      help='Configurations to build (ex. x86_64-linux-gnu)',
+                      nargs='*')
+  return parser
+
 
 def main(argv):
   read_config ()
