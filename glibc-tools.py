@@ -119,25 +119,26 @@ class JobControl:
 
 
 class Context(object):
-  def __init__(self, parallelize, run_built_tests, keep, stackprot,
-               multiarch, werror):
-    self.parallelize = parallelize[0]
-    self.build_jobs = parallelize[1]
+  def __init__ (self, opts):
+    self.parallelize = opts.parallelize[0]
+    self.build_jobs = opts.parallelize[1]
 
-    self.run_built_tests = run_built_tests
+    self.run_built_tests = 'yes' if opts.run_built_tests else 'no'
 
     self.extra_config_opts = []
-    if stackprot == True:
+    if opts.enable_stackprot == True:
       self.extra_config_opts.append("--enable-stack-protector=all")
-    if multiarch == False:
+    if opts.enable_multiarch == False:
       self.extra_config_opts.append("--disable-multi-arch")
-    if werror == True:
+    if opts.disable_werror == True:
       self.extra_config_opts.append("--disable-werror")
+    if opts.with_kernel:
+      self.extra_config_opts.append("--enable-kernel=%s" % opts.with_kernel)
 
     self.srcdir = PATHS["srcdir"]
     self.builddir = PATHS["builddir"]
     self.logsdir = PATHS["logsdir"]
-    self.keep = keep
+    self.keep = opts.keep
     self.status_log_list = []
     self.glibc_configs = {}
     self.configs = {}
@@ -598,6 +599,8 @@ def get_parser():
   parser.add_argument('--nowerror', dest='disable_werror',
                       help='Disable -Werror',
                       action='store_true', default=False)
+  parser.add_argument('--enable-kernel', dest='with_kernel',
+                      help='Build with --enable-kernel')
   parser.add_argument('action',
                       help='What to do',
                       choices=('configure', 'build', 'check', 'check-abi',
@@ -613,13 +616,7 @@ def main(argv):
 
   parser = get_parser()
   opts = parser.parse_args(argv)
-
-  ctx = Context(opts.parallelize,
-                'yes' if opts.run_built_tests else 'no',
-                opts.keep,
-                opts.enable_stackprot,
-                opts.enable_multiarch,
-                opts.disable_werror)
+  ctx = Context(opts)
 
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
 
