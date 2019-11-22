@@ -119,7 +119,7 @@ class JobControl:
 
 
 class Context(object):
-  def __init__(self, parallelize, run_built_tests, keep, tunables, stackprot,
+  def __init__(self, parallelize, run_built_tests, keep, stackprot,
                multiarch, werror):
     self.parallelize = parallelize[0]
     self.build_jobs = parallelize[1]
@@ -127,8 +127,6 @@ class Context(object):
     self.run_built_tests = run_built_tests
 
     self.extra_config_opts = []
-    if tunables == True:
-      self.extra_config_opts.append("--enable-tunables")
     if stackprot == True:
       self.extra_config_opts.append("--enable-stack-protector=all")
     if multiarch == False:
@@ -386,8 +384,8 @@ class Context(object):
     self.add_config(arch='sparc64',
                     os_name='linux-gnu',
                     glibcs=[{'ccopts' : "-mcpu=niagara"},
-                            {'arch': 'sparcv9',
-                             'ccopts': '-m32 -mlong-double-128'}])
+                            {'arch': 'sparc',
+                             'ccopts': '-m32 -mlong-double-128 -mcpu=v9'}])
     self.add_config(arch='x86_64',
                     os_name='linux-gnu',
                     glibcs=[{},
@@ -508,9 +506,6 @@ def get_parser():
   parser.add_argument('-t', dest='run_built_tests',
                       help='Run built tests',
                       action='store_true', default=False)
-  parser.add_argument('--tunables', dest='enable_tunables',
-                      help='Enable tunable',
-                      action='store_true', default=False)
   parser.add_argument('--stackprot', dest='enable_stackprot',
                       help='Enable stack protection',
                       action='store_true', default=False)
@@ -621,7 +616,6 @@ def main(argv):
   ctx = Context(opts.parallelize,
                 'yes' if opts.run_built_tests else 'no',
                 opts.keep,
-                opts.enable_tunables,
                 opts.enable_stackprot,
                 opts.enable_multiarch,
                 opts.disable_werror)
