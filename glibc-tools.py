@@ -261,15 +261,39 @@ class Context(object):
     self.add_config(arch='arm',
                     os_name='linux-gnueabihf',
                     glibcs=[{},
-                            {'arch' : 'armv7', 'ccopts': '-march=armv7-a'},
-                            {'arch' : 'armv7-neon', 'ccopts': '-march=armv7-a -mfpu=neon'},
-                            {'arch' : 'armv7-neonhard', 'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
+                            {'arch' : 'armv5',
+                             'ccopts': '-march=armv5te -mfpu=vfpv3'},
+                            {'arch' : 'armv6',
+                             'ccopts': '-march=armv6 -mfpu=vfpv3'},
+                            {'arch' : 'armv6t2',
+                             'ccopts': '-march=armv6t2 -mfpu=vfpv3'},
+                            {'arch' : 'armv7',
+                             'ccopts': '-march=armv7-a -mfpu=vfpv3'},
+                            {'variant': 'armv7-disable-multi-arch',
+			     'ccopts' : '-march=armv7-a -mfpu=vfpv3',
+			     'cfg' : ["--disable-multi-arch"]},
+                            {'arch' : 'armv7-neon',
+                             'ccopts': '-march=armv7-a -mfpu=neon'},
+                            {'arch' : 'armv7-neonhard',
+                             'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
     self.add_config(arch='armeb',
                     os_name='linux-gnueabihf',
                     glibcs=[{},
-                            {'arch' : 'armebv7', 'ccopts': '-march=armv7-a'},
-                            {'arch' : 'armebv7-neon', 'ccopts': '-march=armv7-a -mfpu=neon'},
-                            {'arch' : 'armebv7-neonhard', 'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
+                            {'arch' : 'armeb-v5',
+                             'ccopts': '-march=armv5te -mfpu=vfpv3'},
+                            {'arch' : 'armeb-v6',
+                             'ccopts': '-march=armv6 -mfpu=vfpv3'},
+                            {'arch' : 'armeb-v6t2',
+                             'ccopts': '-march=armv6t2 -mfpu=vfpv3'},
+                            {'arch' : 'armeb-v7',
+                             'ccopts': '-march=armv7-a -mfpu=vfpv3'},
+                            {'variant': 'armv7-disable-multi-arch',
+			     'ccopts' : '-march=armv7-a -mfpu=vfpv3',
+			     'cfg' : ["--disable-multi-arch"]},
+                            {'arch' : 'armeb-v7neon',
+                             'ccopts': '-march=armv7-a -mfpu=neon'},
+                            {'arch' : 'armeb-v7neonhard',
+                             'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
     #self.add_config(arch='armeb',
     #                os_name='linux-gnueabihf',
     #                variant='be8')
@@ -576,6 +600,26 @@ SPECIAL_LISTS = {
     "powerpc-linux-gnu-power5-disable-multi-arch",
     "powerpc-linux-gnu-power4-disable-multi-arch",
     "powerpc-linux-gnu",
+  ],
+
+  "arm": [
+    "arm-linux-gnueabihf",
+    "armv5-linux-gnueabihf",
+    "armv6-linux-gnueabihf",
+    "armv6t2-linux-gnueabihf",
+    "armv7-linux-gnueabihf",
+    "armv7-neon-linux-gnueabihf",
+    "armv7-neonhard-linux-gnueabihf",
+    "arm-linux-gnueabihf-armv7-disable-multi-arch",
+
+    "armeb-linux-gnueabihf",
+    "armeb-v5-linux-gnueabihf",
+    "armeb-v6-linux-gnueabihf",
+    "armeb-v6t2-linux-gnueabihf",
+    "armeb-v7-linux-gnueabihf",
+    "armeb-v7neon-linux-gnueabihf",
+    "armeb-v7neonhard-linux-gnueabihf",
+    "armeb-linux-gnueabihf-armv7-disable-multi-arch"
   ]
 }
 
