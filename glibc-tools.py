@@ -126,8 +126,8 @@ class Context(object):
     self.run_built_tests = 'yes' if opts.run_built_tests else 'no'
 
     self.extra_config_opts = []
-    if opts.enable_stackprot == True:
-      self.extra_config_opts.append("--enable-stack-protector=all")
+    if opts.enable_stackprot:
+      self.extra_config_opts.append("--enable-stack-protector=%s" % opts.enable_stackprot)
     if opts.enable_multiarch == False:
       self.extra_config_opts.append("--disable-multi-arch")
     if opts.disable_werror == True:
@@ -410,6 +410,10 @@ class Context(object):
                     os_name='linux-gnu',
                     glibcs=[{'ccopts' : "-mcpu=niagara"},
                             {'arch': 'sparc',
+                             'ccopts': '-m32 -mlong-double-128 -mcpu=leon3'},
+                            {'arch': 'sparcv8',
+                             'ccopts': '-m32 -mlong-double-128 -mcpu=leon3'},
+                            {'arch': 'sparcv9',
                              'ccopts': '-m32 -mlong-double-128 -mcpu=v9'}])
     self.add_config(arch='x86_64',
                     os_name='linux-gnu',
@@ -636,7 +640,7 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--stackprot', dest='enable_stackprot',
                       help='Enable stack protection',
-                      action='store_true', default=False)
+                      choices=('yes', 'all', 'strong'))
   parser.add_argument('--noifunc', dest='enable_multiarch',
                       help='Disable ifunc',
                       action='store_false', default=True)
