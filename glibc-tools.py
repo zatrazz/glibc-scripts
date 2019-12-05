@@ -135,7 +135,7 @@ class Context(object):
     if opts.with_kernel:
       self.extra_config_opts.append("--enable-kernel=%s" % opts.with_kernel)
     if opts.enable_static_pie:
-      slef.extra_config_opts.apeend("--enable-static-pie")
+      self.extra_config_opts.append("--enable-static-pie")
 
     self.srcdir = PATHS["srcdir"]
     self.builddir = PATHS["builddir"]
@@ -651,7 +651,7 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--enable-kernel', dest='with_kernel',
                       help='Build with --enable-kernel')
-  parser.add_argument('--eanble-static-pic', dest='enable_static_pie',
+  parser.add_argument('--enable-static-pie', dest='enable_static_pie',
                       help='Build with --enable-static-pie',
                       action='store_true', default=False)
   parser.add_argument('action',
