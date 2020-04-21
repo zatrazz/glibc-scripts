@@ -552,6 +552,7 @@ SPECIAL_LISTS = {
     "powerpc64-linux-gnu",
     "powerpc-linux-gnu-power4",
     "powerpc-linux-gnu",
+    "powerpc-linux-gnu-soft",
     "riscv64-linux-gnu-rv64imafdc-lp64d",
     "s390-linux-gnu",
     "s390x-linux-gnu",
