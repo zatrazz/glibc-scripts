@@ -431,7 +431,10 @@ class Context(object):
                                   {'arch': 'i486',
                                    'ccopts': '-m32 -march=i486'},
                                   {'arch': 'i586',
-                                   'ccopts': '-m32 -march=i586'}])
+                                   'ccopts': '-m32 -march=i586'},
+                                  {'variant': 'fp',
+                                   'arch': 'i686',
+                                   'ccopts': '-m32 -march=i686 -fno-omit-frame-pointer'}])
 
 
 
