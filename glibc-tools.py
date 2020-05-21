@@ -112,7 +112,7 @@ class JobControl:
       proc = self.jobs[arch]
       proc.wait()
       msg = "%s | %s" % (self.action, arch)
-      if proc.returncode is not 0:
+      if proc.returncode != 0:
         print("FAIL : " + msg)
       else:
         print("PASS : " + msg)
@@ -271,6 +271,8 @@ class Context(object):
                              'ccopts': '-march=armv6t2 -mfpu=vfpv3'},
                             {'arch' : 'armv7',
                              'ccopts': '-march=armv7-a -mfpu=vfpv3'},
+                            {'arch' : 'armv7-thumb',
+                             'ccopts': '-march=armv7-a -mfpu=vfpv3 -mthumb'},
                             {'variant': 'armv7-disable-multi-arch',
 			     'ccopts' : '-march=armv7-a -mfpu=vfpv3',
 			     'cfg' : ["--disable-multi-arch"]},
