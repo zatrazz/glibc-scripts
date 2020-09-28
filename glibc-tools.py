@@ -536,9 +536,41 @@ def parallelize_type(string):
   return [ int(fields[0]), int(fields[1]) ]
 
 SPECIAL_LISTS = {
+  # Most of the supported Linux ABIs
+  "linux" : [
+    "aarch64-linux-gnu",
+    "alpha-linux-gnu",
+    "arc-linux-gnuhf",
+    "arm-linux-gnueabihf",
+    "csky-linux-gnuabiv2",
+    "hppa-linux-gnu",
+    "i686-linux-gnu",
+    "ia64-linux-gnu",
+    "m68k-linux-gnu",
+    "microblaze-linux-gnu",
+    "mips64-linux-gnu",
+    "mips64-n32-linux-gnu",
+    "mips-linux-gnu",
+    "nios2-linux-gnu",
+    "powerpc64le-linux-gnu",
+    "powerpc64-linux-gnu",
+    "powerpc-linux-gnu",
+    "riscv32-linux-gnu-rv32imafdc-ilp32d",
+    "riscv64-linux-gnu-rv64imafdc-lp64d",
+    "s390-linux-gnu",
+    "s390x-linux-gnu",
+    "sh4-linux-gnu",
+    "sparc64-linux-gnu",
+    "sparcv9-linux-gnu",
+    "x86_64-linux-gnu",
+    "x86_64-linux-gnu-x32",
+  ],
+
+  # All support triple ABIs with *.abilist (used to update-abi command).
   "abi" : [
     "aarch64-linux-gnu",
     "alpha-linux-gnu",
+    "arc-linux-gnuhf",
     "arm-linux-gnueabihf",
     "armeb-linux-gnueabihf",
     "csky-linux-gnuabiv2",
@@ -556,9 +588,9 @@ SPECIAL_LISTS = {
     "nios2-linux-gnu",
     "powerpc64le-linux-gnu",
     "powerpc64-linux-gnu",
-    "powerpc-linux-gnu-power4",
     "powerpc-linux-gnu",
     "powerpc-linux-gnu-soft",
+    "riscv32-linux-gnu-rv32imafdc-ilp32d",
     "riscv64-linux-gnu-rv64imafdc-lp64d",
     "s390-linux-gnu",
     "s390x-linux-gnu",
