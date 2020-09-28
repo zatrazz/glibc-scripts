@@ -376,6 +376,15 @@ class Context(object):
                             {'variant': 'power8-disable-multi-arch', 'ccopts': '-mcpu=power8', 'cfg' : ["--with-cpu=power8", "--disable-multi-arch"]},
                             {'variant': 'power9-disable-multi-arch', 'ccopts': '-mcpu=power9', 'cfg' : ["--with-cpu=power9", "--disable-multi-arch"]},
                             {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]}])
+    self.add_config(arch='riscv32',
+                    os_name='linux-gnu',
+                    variant='rv32imac-ilp32')
+    self.add_config(arch='riscv32',
+                    os_name='linux-gnu',
+                    variant='rv32imafdc-ilp32')
+    self.add_config(arch='riscv32',
+                    os_name='linux-gnu',
+                    variant='rv32imafdc-ilp32d')
     self.add_config(arch='riscv64',
                     os_name='linux-gnu',
                     variant='rv64imac-lp64')
