@@ -388,15 +388,15 @@ class Context(object):
     self.add_config(arch='csky',
                     os_name='linux-gnuabiv2')
     self.add_config(arch='sh4',
+                    os_name='linux-gnu')
+    self.add_config(arch='sh4eb',
+                    os_name='linux-gnu')
+    self.add_config(arch='sh4',
                     os_name='linux-gnu',
-                    glibcs=[{},
-                            {'variant': 'soft',
-                             'cfg': ['--without-fp']}])
+                    variant='soft')
     self.add_config(arch='sh4eb',
                     os_name='linux-gnu',
-                    glibcs=[{},
-                            {'variant': 'soft',
-                             'cfg': ['--without-fp']}])
+                    variant='soft')
     self.add_config(arch='sparc64',
                     os_name='linux-gnu',
                     glibcs=[{'ccopts' : "-mcpu=niagara"},
