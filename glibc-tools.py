@@ -239,6 +239,12 @@ class Context(object):
     """Add all known glibc build configurations."""
     self.add_config(arch='aarch64',
                     os_name='linux-gnu')
+    self.add_config(arch='arc',
+                    os_name='linux-gnu')
+    self.add_config(arch='arc',
+                    os_name='linux-gnuhf')
+    self.add_config(arch='arceb',
+                    os_name='linux-gnu')
     self.add_config(arch='alpha',
                     os_name='linux-gnu')
     self.add_config(arch='arm',
