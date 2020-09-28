@@ -237,11 +237,6 @@ class Context(object):
 
   def add_all_configs(self):
     """Add all known glibc build configurations."""
-    # On architectures missing __builtin_trap support, these
-    # options may be needed as a workaround; see
-    # <https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70216> for SH.
-    no_isolate = ('-fno-isolate-erroneous-paths-dereference'
-                  ' -fno-isolate-erroneous-paths-attribute')
     self.add_config(arch='aarch64',
                     os_name='linux-gnu')
     #self.add_config(arch='aarch64',
@@ -402,14 +397,12 @@ class Context(object):
                     os_name='linux-gnu',
                     glibcs=[{},
                             {'variant': 'soft',
-                             'cfg': ['--without-fp'],
-                             'ccopts': no_isolate}])
+                             'cfg': ['--without-fp']}])
     self.add_config(arch='sh4eb',
                     os_name='linux-gnu',
                     glibcs=[{},
                             {'variant': 'soft',
-                             'cfg': ['--without-fp'],
-                             'ccopts': no_isolate}])
+                             'cfg': ['--without-fp']}])
     self.add_config(arch='sparc64',
                     os_name='linux-gnu',
                     glibcs=[{'ccopts' : "-mcpu=niagara"},
