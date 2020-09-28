@@ -380,7 +380,8 @@ class Context(object):
     self.add_config(arch='s390x',
                     os_name='linux-gnu',
                     glibcs=[{},
-                            {'arch': 's390', 'ccopts': '-m31'}])
+                            {'variant': 'z196', 'ccopts': '-march=z196'},
+                            {'arch'   : 's390', 'ccopts': '-m31'}])
     self.add_config(arch='csky',
                     os_name='linux-gnuabiv2',
                     variant='soft')
