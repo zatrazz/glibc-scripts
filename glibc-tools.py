@@ -239,18 +239,8 @@ class Context(object):
     """Add all known glibc build configurations."""
     self.add_config(arch='aarch64',
                     os_name='linux-gnu')
-    #self.add_config(arch='aarch64',
-    #                os_name='linux-gnu',
-    #                variant='ilp32')
-    #self.add_config(arch='aarch64_be',
-    #                os_name='linux-gnu')
     self.add_config(arch='alpha',
                     os_name='linux-gnu')
-    #self.add_config(arch='armeb',
-    #                os_name='linux-gnueabi')
-    #self.add_config(arch='armeb',
-    #                os_name='linux-gnueabi',
-    #                variant='be8')
     self.add_config(arch='arm',
                     os_name='linux-gnueabi',
                     glibcs=[{},
@@ -293,9 +283,6 @@ class Context(object):
                              'ccopts': '-march=armv7-a -mfpu=neon'},
                             {'arch' : 'armeb-v7neonhard',
                              'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
-    #self.add_config(arch='armeb',
-    #                os_name='linux-gnueabihf',
-    #                variant='be8')
     self.add_config(arch='hppa',
                     os_name='linux-gnu')
     self.add_config(arch='ia64',
