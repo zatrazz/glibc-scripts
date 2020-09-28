@@ -370,6 +370,12 @@ class Context(object):
                             {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]}])
     self.add_config(arch='riscv64',
                     os_name='linux-gnu',
+                    variant='rv64imac-lp64')
+    self.add_config(arch='riscv64',
+                    os_name='linux-gnu',
+                    variant='rv64imafdc-lp64')
+    self.add_config(arch='riscv64',
+                    os_name='linux-gnu',
                     variant='rv64imafdc-lp64d')
     self.add_config(arch='s390x',
                     os_name='linux-gnu',
