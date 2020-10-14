@@ -93,6 +93,17 @@ class Job:
     return self.arch
 
 
+class bcolors:
+  HEADER = '\033[95m'
+  OKBLUE = '\033[94m'
+  OKCYAN = '\033[36m'
+  OKGREEN = '\033[92m'
+  WARNING = '\033[93m'
+  FAIL = '\033[91m'
+  ENDC = '\033[0m'
+  BOLD = '\033[1m'
+  UNDERLINE = '\033[4m'
+
 class JobControl:
   def __init__(self, action):
     self.jobs = {}
@@ -113,9 +124,9 @@ class JobControl:
       proc.wait()
       msg = "%s | %s" % (self.action, arch)
       if proc.returncode != 0:
-        print("FAIL : " + msg)
+        print(bcolors.FAIL + "FAIL : " + bcolors.ENDC + msg)
       else:
-        print("PASS : " + msg)
+        print(bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
 
 
 class Context(object):
@@ -153,6 +164,10 @@ class Context(object):
     jobs = []
     for c in glibcs:
       job = Job(c)
+
+      if not c in self.glibc_configs:
+        print(bcolors.FAIL + "FAIL : " + bcolors.ENDC + "invalid triplet | " + c)
+        continue
 
       buildpath = PATHS["builddir"] + '/' + c
       if self.keep is False:
