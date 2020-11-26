@@ -311,6 +311,9 @@ class Context(object):
                     glibcs=[{'arch': 'mips64-n32'},
                             {'arch': 'mips',
                              'ccopts': '-mabi=32'},
+                            {'arch': 'mips',
+                             'variant' : 'mips16',
+                             'ccopts': '-mabi=32 -mips16'},
                             {'arch': 'mips64',
                              'ccopts': '-mabi=64'}])
     self.add_config(arch='mips64',
