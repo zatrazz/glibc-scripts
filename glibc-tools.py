@@ -147,6 +147,8 @@ class Context(object):
       self.extra_config_opts.append("--enable-kernel=%s" % opts.with_kernel)
     if opts.enable_static_pie:
       self.extra_config_opts.append("--enable-static-pie")
+    if opts.enable_tunables:
+      self.extra_config_opts.append("--enable-tunables=no")
 
     self.srcdir = PATHS["srcdir"]
     self.builddir = PATHS["builddir"]
@@ -326,6 +328,9 @@ class Context(object):
                     glibcs=[{'arch': 'mips64-n32'},
                             {'arch': 'mips',
                              'ccopts': '-mabi=32'},
+                            {'arch': 'mips',
+                             'variant' : 'mips16',
+                             'ccopts': '-mabi=32 -mips16'},
                             {'arch': 'mips64',
                              'ccopts': '-mabi=64'}])
     self.add_config(arch='mips64',
@@ -700,6 +705,9 @@ def get_parser():
   parser.add_argument('--stackprot', dest='enable_stackprot',
                       help='Enable stack protection',
                       choices=('yes', 'all', 'strong'))
+  parser.add_argument('--tunables', dest='enable_tunables',
+                      help='Enable tunables (default is yes)',
+                      choices=('yes', 'no'))
   parser.add_argument('--noifunc', dest='enable_multiarch',
                       help='Disable ifunc',
                       action='store_false', default=True)
