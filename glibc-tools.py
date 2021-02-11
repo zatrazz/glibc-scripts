@@ -702,17 +702,17 @@ def get_parser():
   parser.add_argument('-t', dest='run_built_tests',
                       help='Run built tests',
                       action='store_true', default=False)
-  parser.add_argument('--stackprot', dest='enable_stackprot',
+  parser.add_argument('--enable-stack-protector', dest='enable_stackprot',
                       help='Enable stack protection',
                       choices=('yes', 'all', 'strong'))
-  parser.add_argument('--tunables', dest='enable_tunables',
+  parser.add_argument('--enable-tunables', dest='enable_tunables',
                       help='Enable tunables (default is yes)',
                       choices=('yes', 'no'))
-  parser.add_argument('--noifunc', dest='enable_multiarch',
-                      help='Disable ifunc',
+  parser.add_argument('--disable-multi-arch', dest='enable_multiarch',
+                      help='Disable iFUNC sysdep selection',
                       action='store_false', default=True)
-  parser.add_argument('--nowerror', dest='disable_werror',
-                      help='Disable -Werror',
+  parser.add_argument('--disable-werror', dest='disable_werror',
+                      help='Do not use -Werror',
                       action='store_true', default=False)
   parser.add_argument('--enable-kernel', dest='with_kernel',
                       help='Build with --enable-kernel')
