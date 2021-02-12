@@ -9,6 +9,8 @@ import platform
 from itertools import chain
 import configparser
 from py3compat import *
+from collections import OrderedDict
+import concurrent.futures
 
 """
 glibc-tools.py is a script that configures, build, and check multiple
@@ -16,6 +18,8 @@ glibc builds using different compilers targerting different architectures.
 """
 
 PATHS = {}
+
+ACTIONS = ('configure', 'make', 'check', 'check-abi', 'update-abi', 'bench-build')
 
 def read_config():
   config = configparser.RawConfigParser()
@@ -79,20 +83,6 @@ class Config(object):
     self.glibcs = glibcs
 
 
-class Job:
-  def __init__(self, arch):
-    self.arch = arch
-    self.configure = None
-    self.build = None
-    self.check = None
-    self.check_abi = None
-    self.update_abi = None
-    self.bench_build = None
-
-  def __repr__(self):
-    return self.arch
-
-
 class bcolors:
   HEADER = '\033[95m'
   OKBLUE = '\033[94m'
@@ -104,29 +94,14 @@ class bcolors:
   BOLD = '\033[1m'
   UNDERLINE = '\033[4m'
 
-class JobControl:
-  def __init__(self, action):
-    self.jobs = {}
-    self.action = action
 
-  def queue_job(self, name, cmd):
-    if cmd is None:
-      return
-    builddir = PATHS["builddir"] + '/' + name
-    outfile = create_file(PATHS["logsdir"] + '/' + name + '_' + self.action + '.out')
-    errfile = create_file(PATHS["logsdir"] + '/' + name + '_' + self.action + '.err')
-    proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
-    self.jobs[name] = proc
-
-  def wait_queue(self):
-    for arch in sorted(self.jobs.keys()):
-      proc = self.jobs[arch]
-      proc.wait()
-      msg = "%s | %s" % (self.action, arch)
-      if proc.returncode != 0:
-        print(bcolors.FAIL + "FAIL : " + bcolors.ENDC + msg)
-      else:
-        print(bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
+def run_cmd(abi, action, cmd):
+  builddir = PATHS["builddir"] + '/' + abi
+  outfile = create_file(PATHS["logsdir"] + '/' + abi + '_' + action + '.out')
+  errfile = create_file(PATHS["logsdir"] + '/' + abi + '_' + action + '.err')
+  proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
+  proc.wait()
+  return (abi, proc.returncode)
 
 
 class Context(object):
@@ -159,84 +134,62 @@ class Context(object):
     self.configs = {}
     self.add_all_configs()
 
+  CMD_MAP = OrderedDict([
+    ("configure",
+      (lambda self, abi : self.glibc_configs[abi].configure(self.extra_config_opts),
+       ["configure"])),
+    ("make",
+      (lambda self, abi : self.glibc_configs[abi].build(),
+       ["configure", "make"])),
+    ("check",
+      (lambda abi : self.glibc_configs[abi].check(),
+       ["configure", "make", "check"])),
+    ("check-abi",
+      (lambda abi : self.glibc_configs[abi].check_abi(),
+       ["configure", "make", "check-abi"])),
+    ("update-abi",
+      (lambda abi : self.glibc_configs[abi].update_abi(),
+       ["configure", "make", "update-abi"])),
+    ("bench-build",
+      (lambda abi : self.glibc_configs[abi].bench_build(),
+       ["configure", "make", "build-build"])),
+  ])
+
   def run(self, action, glibcs):
     if not glibcs:
       glibcs = sorted(self.glibc_configs.keys())
 
-    jobs = []
-    for c in glibcs:
-      job = Job(c)
+    cmds = OrderedDict((action, OrderedDict()) for action in ACTIONS)
 
-      if not c in self.glibc_configs:
-        print(bcolors.FAIL + "FAIL : " + bcolors.ENDC + "invalid triplet | " + c)
-        continue
+    cmd = self.CMD_MAP[action]
+    for abi in glibcs:
+      for act in cmd[1]:
+        cmds[act][abi] = self.CMD_MAP[act][0](self, abi)
 
-      buildpath = PATHS["builddir"] + '/' + c
       if self.keep is False:
-        remove_recreate_dirs(buildpath)
+        remove_recreate_dirs(PATHS['builddir'] + '/' + abi)
 
-      if action == "configure":
-        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
-      if action == "build":
-        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
-        job.build = self.glibc_configs[c].build()
-      if action == "check":
-        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
-        job.build = self.glibc_configs[c].build()
-        job.check = self.glibc_configs[c].check()
-      if action == "check-abi":
-        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
-        job.build = self.glibc_configs[c].build()
-        job.check_abi = self.glibc_configs[c].check_abi()
-      if action == "update-abi":
-        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
-        job.build = self.glibc_configs[c].build()
-        job.update_abi = self.glibc_configs[c].update_abi()
-      if action == "bench-build":
-        job.configure = self.glibc_configs[c].configure(self.extra_config_opts)
-        job.build = self.glibc_configs[c].build()
-        job.bench_build = self.glibc_configs[c].bench_build()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
+         as executor:
+      for action, cmds in cmds.items():
+        if len(cmds) == 0:
+          continue
 
-      jobs.append(job)
+        future_to_abi = {executor.submit(run_cmd, abi, action, cmds[abi]) : \
+                         abi for abi in cmds.keys()}
+        for future in concurrent.futures.as_completed(future_to_abi):
+          abi = future_to_abi[future]
+          try:
+            (abi, resultcode) = future.result()
+          except Exception as exc:
+            print('%r generated an exception: %s' % (abi, exc))
+          else:
+            msg = "%s | %s" % (action, abi)
+            if resultcode == 0:
+              print (bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
+            else:
+              print (bcolors.FAIL + "FAIL : " + bcolors.ENDC + msg)
 
-    n = self.parallelize
-    jobsbatch = [jobs[i:i+n] for i in range(0, len(jobs), n)]
-
-    for batch in jobsbatch:
-      jobctrl = JobControl('configure')
-      for job in batch:
-        jobctrl.queue_job(job.arch, job.configure)
-      jobctrl.wait_queue()
-
-    for batch in jobsbatch:
-      jobctrl = JobControl('build')
-      for job in batch:
-        jobctrl.queue_job(job.arch, job.build)
-      jobctrl.wait_queue()
-
-    for batch in jobsbatch:
-      jobctrl = JobControl('check')
-      for job in batch:
-        jobctrl.queue_job(job.arch, job.check)
-      jobctrl.wait_queue()
-
-    for batch in jobsbatch:
-      jobctrl = JobControl('check-abi')
-      for job in batch:
-        jobctrl.queue_job(job.arch, job.check_abi)
-      jobctrl.wait_queue()
-
-    for batch in jobsbatch:
-      jobctrl = JobControl('update-abi')
-      for job in batch:
-        jobctrl.queue_job(job.arch, job.update_abi)
-      jobctrl.wait_queue()
-
-    for batch in jobsbatch:
-      jobctrl = JobControl('bench-build')
-      for job in batch:
-        jobctrl.queue_job(job.arch, job.bench_build)
-      jobctrl.wait_queue()
 
   def add_config(self, **args):
     """Add an individual build configuration."""
@@ -721,8 +674,7 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('action',
                       help='What to do',
-                      choices=('configure', 'build', 'check', 'check-abi',
-                               'update-abi', 'bench-build'))
+                      choices=ACTIONS)
   parser.add_argument('configs',
                       help='Configurations to build (ex. x86_64-linux-gnu)',
                       nargs='*')
