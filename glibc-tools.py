@@ -624,6 +624,28 @@ SPECIAL_LISTS = {
     "i686-gnu",
   ],
 
+  "abi32" : [
+    "arm-linux-gnueabihf",
+    "armeb-linux-gnueabihf",
+    "csky-linux-gnuabiv2",
+    "hppa-linux-gnu",
+    "i686-linux-gnu",
+    "m68k-linux-gnu",
+    "m68k-linux-gnu-coldfire",
+    "microblaze-linux-gnu",
+    "microblazeel-linux-gnu",
+    "mips64-n32-linux-gnu",
+    "mips-linux-gnu",
+    "mips-linux-gnu-soft",
+    "nios2-linux-gnu",
+    "powerpc-linux-gnu",
+    "powerpc-linux-gnu-soft",
+    "s390-linux-gnu",
+    "sh4-linux-gnu",
+    "sh4eb-linux-gnu",
+    "sparcv9-linux-gnu",
+  ],
+
   "powerpc64le" : [
     "powerpc64le-linux-gnu",
     "powerpc64le-linux-gnu-disable-multi-arch",
