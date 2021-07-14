@@ -21,6 +21,7 @@ PATHS = {}
 
 ACTIONS = (
   'configure',
+  'copylibs',
   'make',
   'check',
   'check-abi',
@@ -142,15 +143,18 @@ class Context(object):
     self.add_all_configs()
 
   CMD_MAP = OrderedDict([
+    ("copylibs",
+      (lambda self, abi : self.glibc_configs[abi].copylibs(),
+       [])),
     ("configure",
       (lambda self, abi : self.glibc_configs[abi].configure(self.extra_config_opts),
-       ["configure"])),
+       ["configure", "copylibs"])),
     ("make",
       (lambda self, abi : self.glibc_configs[abi].build(),
-       ["configure", "make"])),
+       ["configure", "copylibs", "make"])),
     ("check",
       (lambda self, abi : self.glibc_configs[abi].check(),
-       ["configure", "make", "check"])),
+       ["configure", "copylibs", "make", "check"])),
     ("check-abi",
       (lambda self, abi : self.glibc_configs[abi].check_abi(),
        ["configure", "make", "check-abi"])),
@@ -488,6 +492,18 @@ class Glibc(object):
     cmd = cmd + extra_config_opts
     cmd += self.cfg
     return cmd
+
+  def lib_name(self, lib):
+    cmd = self.tool_name("gcc") + " -print-file-name={}".format(lib)
+    stdout = subprocess.getoutput(cmd)
+    return stdout
+
+  def copylibs(self):
+    libgcc = self.lib_name("libgcc_s.so.1")
+    if libgcc == "libgcc_s.so.1":
+      libgcc = self.lib_name("libgcc_s.so")
+    libstdcxx = self.lib_name("libstdc++.so.6")
+    return ["cp", libgcc, libstdcxx, PATHS["builddir"] + '/' + self.name]
 
   def build(self):
     return ['make',
