@@ -86,7 +86,7 @@ def build_check(compiler, sysfile):
   cmd = compiler + [ '-std=gnu11', '-c', sysfile.name ]
   fnull = open(os.devnull, 'w')
   ret = subprocess.run(cmd, check=False, stdout=fnull, stderr=fnull)
-  if ret.returncode is not 0:
+  if ret.returncode != 0:
     return "FAIL"
   return "OK"
 
