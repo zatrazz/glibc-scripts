@@ -19,7 +19,14 @@ glibc builds using different compilers targerting different architectures.
 
 PATHS = {}
 
-ACTIONS = ('configure', 'make', 'check', 'check-abi', 'update-abi', 'bench-build')
+ACTIONS = (
+  'configure',
+  'make',
+  'check',
+  'check-abi',
+  'update-abi',
+  'bench-build',
+  'list')
 
 def read_config():
   config = configparser.RawConfigParser()
@@ -158,6 +165,9 @@ class Context(object):
   def run(self, action, glibcs):
     if not glibcs:
       glibcs = sorted(self.glibc_configs.keys())
+
+    if action == "list":
+      return self.list_configs(glibcs)
 
     cmds = OrderedDict((action, OrderedDict()) for action in ACTIONS)
 
@@ -415,6 +425,9 @@ class Context(object):
                                    'arch': 'i686',
                                    'ccopts': '-m32 -march=i686 -fno-omit-frame-pointer'}])
 
+  def list_configs(self, glibcs):
+    for abi in glibcs:
+      print(abi)
 
 
 class Glibc(object):
