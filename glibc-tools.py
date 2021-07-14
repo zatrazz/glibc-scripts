@@ -660,14 +660,17 @@ SPECIAL_LISTS = {
 
   "arm": [
     "arm-linux-gnueabihf",
+    "arm-linux-gnueabihf-armv7-disable-multi-arch",
     "armv5-linux-gnueabihf",
     "armv6-linux-gnueabihf",
     "armv6t2-linux-gnueabihf",
     "armv7-linux-gnueabihf",
     "armv7-neon-linux-gnueabihf",
     "armv7-neonhard-linux-gnueabihf",
-    "arm-linux-gnueabihf-armv7-disable-multi-arch",
+    "armv7-thumb-linux-gnueabihf",
+  ],
 
+  "armeb": [
     "armeb-linux-gnueabihf",
     "armeb-v5-linux-gnueabihf",
     "armeb-v6-linux-gnueabihf",
@@ -675,7 +678,6 @@ SPECIAL_LISTS = {
     "armeb-v7-linux-gnueabihf",
     "armeb-v7neon-linux-gnueabihf",
     "armeb-v7neonhard-linux-gnueabihf",
-    "armeb-linux-gnueabihf-armv7-disable-multi-arch"
   ]
 }
 
