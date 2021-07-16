@@ -121,17 +121,17 @@ class Context(object):
 
     self.extra_config_opts = []
     if opts.enable_stackprot:
-      self.extra_config_opts.append("--enable-stack-protector=%s" % opts.enable_stackprot)
+      self.extra_config_opts.append("--enable-stack-protector={}".format(opts.enable_stackprot))
     if opts.enable_multiarch == False:
       self.extra_config_opts.append("--disable-multi-arch")
     if opts.disable_werror == True:
       self.extra_config_opts.append("--disable-werror")
     if opts.with_kernel:
-      self.extra_config_opts.append("--enable-kernel=%s" % opts.with_kernel)
+      self.extra_config_opts.append("--enable-kernel={}".format(opts.with_kernel))
     if opts.enable_static_pie:
       self.extra_config_opts.append("--enable-static-pie")
     if opts.enable_tunables:
-      self.extra_config_opts.append("--enable-tunables=no")
+      self.extra_config_opts.append("--enable-tunables={}".format(opts.enable_tunables))
 
     self.srcdir = PATHS["srcdir"]
     self.builddir = PATHS["builddir"]
@@ -710,10 +710,10 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--enable-stack-protector', dest='enable_stackprot',
                       help='Enable stack protection',
-                      choices=('yes', 'all', 'strong'))
+                      choices=('yes', 'all', 'strong'), default='all')
   parser.add_argument('--enable-tunables', dest='enable_tunables',
                       help='Enable tunables (default is yes)',
-                      choices=('yes', 'no'))
+                      choices=('yes', 'no'), default='yes')
   parser.add_argument('--disable-multi-arch', dest='enable_multiarch',
                       help='Disable iFUNC sysdep selection',
                       action='store_false', default=True)
