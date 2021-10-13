@@ -132,6 +132,8 @@ class Context(object):
       self.extra_config_opts.append("--enable-static-pie")
     if opts.enable_tunables:
       self.extra_config_opts.append("--enable-tunables={}".format(opts.enable_tunables))
+    if opts.enable_bind_now:
+      self.extra_config_opts.append("--enable-bind-now")
 
     self.srcdir = PATHS["srcdir"]
     self.builddir = PATHS["builddir"]
@@ -724,6 +726,9 @@ def get_parser():
                       help='Build with --enable-kernel')
   parser.add_argument('--enable-static-pie', dest='enable_static_pie',
                       help='Build with --enable-static-pie',
+                      action='store_true', default=False)
+  parser.add_argument('--enable-bind-now ', dest='enable_bind_now',
+                      help='Build with --enable-bind-now',
                       action='store_true', default=False)
   parser.add_argument('action',
                       help='What to do',
