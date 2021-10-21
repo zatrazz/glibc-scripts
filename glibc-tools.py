@@ -120,20 +120,16 @@ class Context(object):
     self.run_built_tests = 'yes' if opts.run_built_tests else 'no'
 
     self.extra_config_opts = []
-    if opts.enable_stackprot:
-      self.extra_config_opts.append("--enable-stack-protector={}".format(opts.enable_stackprot))
+    self.extra_config_opts.append("--enable-stack-protector={}".format(opts.enable_stackprot))
+    self.extra_config_opts.append("--enable-static-pie={}".format(opts.enable_static_pie))
+    self.extra_config_opts.append("--enable-tunables={}".format(opts.enable_tunables))
+    self.extra_config_opts.append("--enable-bind-now={}".format(opts.enable_bind_now))
     if opts.enable_multiarch == False:
       self.extra_config_opts.append("--disable-multi-arch")
     if opts.disable_werror == True:
       self.extra_config_opts.append("--disable-werror")
     if opts.with_kernel:
       self.extra_config_opts.append("--enable-kernel={}".format(opts.with_kernel))
-    if opts.enable_static_pie:
-      self.extra_config_opts.append("--enable-static-pie")
-    if opts.enable_tunables:
-      self.extra_config_opts.append("--enable-tunables={}".format(opts.enable_tunables))
-    if opts.enable_bind_now:
-      self.extra_config_opts.append("--enable-bind-now")
 
     self.srcdir = PATHS["srcdir"]
     self.builddir = PATHS["builddir"]
@@ -716,6 +712,12 @@ def get_parser():
   parser.add_argument('--enable-tunables', dest='enable_tunables',
                       help='Enable tunables (default is yes)',
                       choices=('yes', 'no'), default='yes')
+  parser.add_argument('--enable-static-pie', dest='enable_static_pie',
+                      help='Buidl static PIE (default is no)',
+                      choices=('yes', 'no'), default='no')
+  parser.add_argument('--enable-bind-now ', dest='enable_bind_now',
+                      help='Enable bind now (default is yes)',
+                      choices=('yes', 'no'), default='yes')
   parser.add_argument('--disable-multi-arch', dest='enable_multiarch',
                       help='Disable iFUNC sysdep selection',
                       action='store_false', default=True)
@@ -724,12 +726,6 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--enable-kernel', dest='with_kernel',
                       help='Build with --enable-kernel')
-  parser.add_argument('--enable-static-pie', dest='enable_static_pie',
-                      help='Build with --enable-static-pie',
-                      action='store_true', default=False)
-  parser.add_argument('--enable-bind-now ', dest='enable_bind_now',
-                      help='Build with --enable-bind-now',
-                      action='store_true', default=False)
   parser.add_argument('action',
                       help='What to do',
                       choices=ACTIONS)
