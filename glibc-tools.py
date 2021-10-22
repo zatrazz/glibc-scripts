@@ -161,7 +161,7 @@ class Context(object):
        ["configure", "make", "update-abi"])),
     ("bench-build",
       (lambda self, abi : self.glibc_configs[abi].bench_build(),
-       ["configure", "make", "build-build"])),
+       ["configure", "make", "bench-build"])),
   ])
 
   def run(self, action, glibcs):
