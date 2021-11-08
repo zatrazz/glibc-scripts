@@ -713,7 +713,7 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--enable-stack-protector', dest='enable_stackprot',
                       help='Enable stack protection',
-                      choices=('yes', 'all', 'strong'), default='all')
+                      choices=('no', 'yes', 'all', 'strong'), default='all')
   parser.add_argument('--enable-tunables', dest='enable_tunables',
                       help='Enable tunables (default is yes)',
                       choices=('yes', 'no'), default='yes')
