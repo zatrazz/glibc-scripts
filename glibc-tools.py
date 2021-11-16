@@ -124,6 +124,7 @@ class Context(object):
     self.extra_config_opts.append("--enable-static-pie={}".format(opts.enable_static_pie))
     self.extra_config_opts.append("--enable-tunables={}".format(opts.enable_tunables))
     self.extra_config_opts.append("--enable-bind-now={}".format(opts.enable_bind_now))
+    self.extra_config_opts.append("--enable-profile={}".format(opts.enable_profile))
     if opts.enable_multiarch == False:
       self.extra_config_opts.append("--disable-multi-arch")
     if opts.disable_werror == True:
@@ -723,6 +724,9 @@ def get_parser():
   parser.add_argument('--enable-bind-now ', dest='enable_bind_now',
                       help='Enable bind now (default is yes)',
                       choices=('yes', 'no'), default='yes')
+  parser.add_argument('--enable-profile', dest='enable_profile',
+                      help='Enable profile (default is no)',
+                      choices=('yes', 'no'), default='no')
   parser.add_argument('--disable-multi-arch', dest='enable_multiarch',
                       help='Disable iFUNC sysdep selection',
                       action='store_false', default=True)
