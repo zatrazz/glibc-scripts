@@ -29,7 +29,7 @@ ACTIONS = (
   'bench-build',
   'list')
 
-def read_config():
+def read_config(gccversion):
   config = configparser.RawConfigParser()
   cfgpath = str(Path.home()) + "/.glibc-tools.ini"
   config.read(cfgpath)
@@ -42,6 +42,8 @@ def read_config():
     sys.exit(1)
   global PATHS
   PATHS = config._sections['glibc-tools']
+  PATHS['gccversion'] = "{0}{1}".format("-gcc" if gccversion else "", gccversion)
+  PATHS['compilers'] = PATHS['compilers'] + gccversion
 
 def remove_dirs(*args):
   """Remove directories and their contents if they exist."""
@@ -57,6 +59,9 @@ def remove_recreate_dirs(*args):
 def create_file(filename):
   os.makedirs(os.path.dirname(filename), exist_ok=True)
   return open(filename, "w");
+
+def build_dir(abi):
+  return PATHS['builddir'] + '/' + abi + PATHS['gccversion']
 
 PLATFORM_MAP = { "ppc64le" : "powerpc64le" };
 
@@ -104,7 +109,7 @@ class bcolors:
 
 
 def run_cmd(abi, action, cmd):
-  builddir = PATHS["builddir"] + '/' + abi
+  builddir = build_dir (abi)
   outfile = create_file(PATHS["logsdir"] + '/' + abi + '_' + action + '.out')
   errfile = create_file(PATHS["logsdir"] + '/' + abi + '_' + action + '.err')
   proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
@@ -132,9 +137,6 @@ class Context(object):
     if opts.with_kernel:
       self.extra_config_opts.append("--enable-kernel={}".format(opts.with_kernel))
 
-    self.srcdir = PATHS["srcdir"]
-    self.builddir = PATHS["builddir"]
-    self.logsdir = PATHS["logsdir"]
     self.keep = opts.keep
     self.status_log_list = []
     self.glibc_configs = {}
@@ -180,7 +182,7 @@ class Context(object):
         cmds[act][abi] = self.CMD_MAP[act][0](self, abi)
 
       if self.keep is False:
-        remove_recreate_dirs(PATHS['builddir'] + '/' + abi)
+        remove_recreate_dirs(build_dir (abi))
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
          as executor:
@@ -505,7 +507,7 @@ class Glibc(object):
     if libgcc == "libgcc_s.so.1":
       libgcc = self.lib_name("libgcc_s.so")
     libstdcxx = self.lib_name("libstdc++.so.6")
-    return ["cp", libgcc, libstdcxx, PATHS["builddir"] + '/' + self.name]
+    return ["cp", libgcc, libstdcxx, build_dir (self.name)]
 
   def build(self):
     return ['make',
@@ -735,6 +737,8 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--enable-kernel', dest='with_kernel',
                       help='Build with --enable-kernel')
+  parser.add_argument('--gccversion', dest='gccversion',
+                      help='Use a different gcc version', default='')
   parser.add_argument('action',
                       help='What to do',
                       choices=ACTIONS)
@@ -745,11 +749,11 @@ def get_parser():
 
 
 def main(argv):
-  read_config ()
-
   parser = get_parser()
   opts = parser.parse_args(argv)
   ctx = Context(opts)
+
+  read_config (opts.gccversion)
 
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
 
