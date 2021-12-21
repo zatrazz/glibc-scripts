@@ -126,7 +126,8 @@ class Context(object):
 
     self.extra_config_opts = []
     self.extra_config_opts.append("--enable-stack-protector={}".format(opts.enable_stackprot))
-    self.extra_config_opts.append("--enable-static-pie={}".format(opts.enable_static_pie))
+    if opts.disable_pie:
+      self.extra_config_opts.append("--disable-default-pie")
     self.extra_config_opts.append("--enable-tunables={}".format(opts.enable_tunables))
     self.extra_config_opts.append("--enable-bind-now={}".format(opts.enable_bind_now))
     self.extra_config_opts.append("--enable-profile={}".format(opts.enable_profile))
@@ -315,6 +316,9 @@ class Context(object):
                              'ccopts': '-mabi=64'}])
     self.add_config(arch='nios2',
                     os_name='linux-gnu')
+    self.add_config(arch='or1k',
+                    os_name='linux-gnu',
+                    variant='soft')
     self.add_config(arch='powerpc',
                     os_name='linux-gnu',
                     variant='soft')
@@ -723,9 +727,9 @@ def get_parser():
   parser.add_argument('--enable-tunables', dest='enable_tunables',
                       help='Enable tunables (default is yes)',
                       choices=('yes', 'no'), default='yes')
-  parser.add_argument('--enable-static-pie', dest='enable_static_pie',
-                      help='Buidl static PIE (default is no)',
-                      choices=('yes', 'no'), default='no')
+  parser.add_argument('--disable-default-pie', dest='disable_pie',
+                      help='Disable PIE (default is yes)',
+                      action='store_true', default=False)
   parser.add_argument('--enable-bind-now ', dest='enable_bind_now',
                       help='Enable bind now (default is yes)',
                       choices=('yes', 'no'), default='yes')
