@@ -137,6 +137,8 @@ class Context(object):
       self.extra_config_opts.append("--disable-werror")
     if opts.with_kernel:
       self.extra_config_opts.append("--enable-kernel={}".format(opts.with_kernel))
+    if opts.hardcoded:
+      self.extra_config_opts.append("--enable-hardcoded-path-in-tests")
 
     self.keep = opts.keep
     self.status_log_list = []
@@ -730,7 +732,7 @@ def get_parser():
   parser.add_argument('--disable-default-pie', dest='disable_pie',
                       help='Disable PIE (default is yes)',
                       action='store_true', default=False)
-  parser.add_argument('--enable-bind-now ', dest='enable_bind_now',
+  parser.add_argument('--enable-bind-now', dest='enable_bind_now',
                       help='Enable bind now (default is yes)',
                       choices=('yes', 'no'), default='yes')
   parser.add_argument('--enable-profile', dest='enable_profile',
@@ -741,6 +743,9 @@ def get_parser():
                       action='store_false', default=True)
   parser.add_argument('--disable-werror', dest='disable_werror',
                       help='Do not use -Werror',
+                      action='store_true', default=False)
+  parser.add_argument('--enable-hardcoded-path-in-tests', dest='hardcoded',
+                      help='Hardcode newly built glibc path in tests',
                       action='store_true', default=False)
   parser.add_argument('--enable-kernel', dest='with_kernel',
                       help='Build with --enable-kernel')
