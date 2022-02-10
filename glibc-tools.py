@@ -422,7 +422,13 @@ class Context(object):
                             {'arch': 'sparcv8',
                              'ccopts': '-m32 -mlong-double-128 -mcpu=leon3'},
                             {'arch': 'sparcv9',
-                             'ccopts': '-m32 -mlong-double-128 -mcpu=v9'}])
+                             'ccopts': '-m32 -mlong-double-128 -mcpu=v9'}],
+                    extra_glibcs=[{'variant': 'disable-multi-arch',
+                                   'cfg': ['--disable-multi-arch']},
+                                  {'variant': 'disable-multi-arch',
+                                   'arch': 'sparcv9',
+                                   'ccopts': '-m32 -mlong-double-128 -mcpu=v9',
+                                   'cfg': ['--disable-multi-arch']}])
     self.add_config(arch='x86_64',
                     os_name='linux-gnu',
                     glibcs=[{},
