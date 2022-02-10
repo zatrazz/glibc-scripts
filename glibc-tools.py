@@ -139,6 +139,9 @@ class Context(object):
       self.extra_config_opts.append("--enable-kernel={}".format(opts.with_kernel))
     if opts.hardcoded:
       self.extra_config_opts.append("--enable-hardcoded-path-in-tests")
+    if opts.cflags:
+      self.extra_config_opts.append("CFLAGS={}".format(opts.cflags))
+
 
     self.keep = opts.keep
     self.status_log_list = []
@@ -754,6 +757,8 @@ def get_parser():
                       help='Build with --enable-kernel')
   parser.add_argument('--gccversion', dest='gccversion',
                       help='Use a different gcc version', default='')
+  parser.add_argument('--cflags', dest='cflags',
+                      help='Add the CFLAGS on build configuration', default='')
   parser.add_argument('action',
                       help='What to do',
                       choices=ACTIONS)
