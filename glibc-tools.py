@@ -397,7 +397,9 @@ class Context(object):
     self.add_config(arch='s390x',
                     os_name='linux-gnu',
                     glibcs=[{},
-                            {'variant': 'z196', 'ccopts': '-march=z196'},
+                            {'variant': 'z900', 'ccopts': '-march=z900'}, # arch5
+                            {'variant': 'z10', 'ccopts': '-march=z10'},   # arch8
+                            {'variant': 'z196', 'ccopts': '-march=z196'}, # arch9
                             {'arch'   : 's390', 'ccopts': '-m31'}])
     self.add_config(arch='csky',
                     os_name='linux-gnuabiv2',
@@ -699,6 +701,14 @@ SPECIAL_LISTS = {
     "powerpc-linux-gnu-power5-disable-multi-arch",
     "powerpc-linux-gnu-power4-disable-multi-arch",
     "powerpc-linux-gnu",
+  ],
+
+  "zseries": [
+    "s390-linux-gnu",
+    "s390x-linux-gnu",
+    "s390x-linux-gnu-z10",
+    "s390x-linux-gnu-z196",
+    "s390x-linux-gnu-z900",
   ],
 
   "arm": [
