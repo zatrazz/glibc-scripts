@@ -734,6 +734,15 @@ SPECIAL_LISTS = {
     "armeb-v7neon-linux-gnueabihf",
     "armeb-v7neonhard-linux-gnueabihf",
   ]
+
+  "sparc": [
+    "sparc-linux-gnu",
+    "sparc64-linux-gnu",
+    "sparc64-linux-gnu-disable-multi-arch",
+    "sparcv8-linux-gnu",
+    "sparcv9-linux-gnu",
+    "sparcv9-linux-gnu-disable-multi-arch",
+  ]
 }
 
 def get_parser():
