@@ -739,7 +739,7 @@ SPECIAL_LISTS = {
     "armeb-v7-linux-gnueabihf",
     "armeb-v7neon-linux-gnueabihf",
     "armeb-v7neonhard-linux-gnueabihf",
-  ]
+  ],
 
   "sparc": [
     "sparc-linux-gnu",
@@ -810,10 +810,11 @@ def main(argv):
   opts = parser.parse_args(argv)
   ctx = Context(opts)
 
-  read_config (opts.gccversion)
+  read_config (opts.gccversion, opts.srcdir, opts.suffix)
 
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
 
+  ctx = Context(opts)
   ctx.run(opts.action, configs)
 
 if __name__ == "__main__":
