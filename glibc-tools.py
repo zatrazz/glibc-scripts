@@ -19,6 +19,8 @@ glibc builds using different compilers targerting different architectures.
 
 PATHS = {}
 
+SUFFIX = ""
+
 ACTIONS = (
   'configure',
   'copylibs',
@@ -29,7 +31,7 @@ ACTIONS = (
   'bench-build',
   'list')
 
-def read_config(gccversion):
+def read_config(gccversion, srcdir, suffix):
   config = configparser.RawConfigParser()
   cfgpath = str(Path.home()) + "/.glibc-tools.ini"
   config.read(cfgpath)
@@ -40,10 +42,14 @@ def read_config(gccversion):
      or 'compilers' not in config['glibc-tools']:
     print("error: config invalid, run glibc-tools-config.py")
     sys.exit(1)
-  global PATHS
+  global PATHS, SUFFIX
   PATHS = config._sections['glibc-tools']
   PATHS['gccversion'] = "{0}{1}".format("-gcc" if gccversion else "", gccversion)
   PATHS['compilers'] = PATHS['compilers'] + gccversion
+  if srcdir:
+    PATHS['srcdir'] = os.path.join (os.path.dirname(PATHS['srcdir']), srcdir)
+  if suffix:
+    SUFFIX = '-' + suffix
 
 def remove_dirs(*args):
   """Remove directories and their contents if they exist."""
@@ -61,7 +67,7 @@ def create_file(filename):
   return open(filename, "w");
 
 def build_dir(abi):
-  return PATHS['builddir'] + '/' + abi + PATHS['gccversion']
+  return PATHS['builddir'] + '/' + abi + PATHS['gccversion'] + SUFFIX
 
 PLATFORM_MAP = { "ppc64le" : "powerpc64le" };
 
@@ -756,6 +762,10 @@ def get_parser():
   parser.add_argument('-t', dest='run_built_tests',
                       help='Run built tests',
                       action='store_true', default=False)
+  parser.add_argument('-s', dest='srcdir', default='',
+                      help='glibc source tree to use')
+  parser.add_argument('-u', dest='suffix', default='',
+                      help='suffix build to use')
   parser.add_argument('--enable-stack-protector', dest='enable_stackprot',
                       help='Enable stack protection',
                       choices=('no', 'yes', 'all', 'strong'), default='all')
