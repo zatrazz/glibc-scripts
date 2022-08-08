@@ -301,6 +301,9 @@ class Context(object):
     self.add_config(arch='m68k',
                     os_name='linux-gnu',
                     variant='coldfire')
+    self.add_config(arch='loongarch64',
+                    os_name='linux-gnu',
+                    variant='lp64d')
     self.add_config(arch='microblaze',
                     os_name='linux-gnu')
     self.add_config(arch='microblazeel',
@@ -580,6 +583,7 @@ SPECIAL_LISTS = {
     "hppa-linux-gnu",
     "i686-linux-gnu",
     "ia64-linux-gnu",
+    "loongarch64-linux-gnu-lp64d",
     "m68k-linux-gnu",
     "microblaze-linux-gnu",
     "mips64-linux-gnu",
@@ -612,6 +616,7 @@ SPECIAL_LISTS = {
     "hppa-linux-gnu",
     "i686-linux-gnu",
     "ia64-linux-gnu",
+    "loongarch64-linux-gnu-lp64d",
     "m68k-linux-gnu",
     "m68k-linux-gnu-coldfire",
     "microblaze-linux-gnu",
