@@ -753,6 +753,15 @@ SPECIAL_LISTS = {
     "sparcv8-linux-gnu",
     "sparcv9-linux-gnu",
     "sparcv9-linux-gnu-disable-multi-arch",
+  ],
+
+  "x86_64": [
+    "x86_64-linux-gnu",
+    "x86_64-linux-gnu-disable-multi-arch",
+    "x86_64-linux-gnu-v2",
+    "x86_64-linux-gnu-v3",
+    "x86_64-linux-gnu-v4",
+    "x86_64-linux-gnu-x32"
   ]
 }
 
