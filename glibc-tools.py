@@ -113,11 +113,16 @@ class bcolors:
   BOLD = '\033[1m'
   UNDERLINE = '\033[4m'
 
+def create_outfile(strtype, abi, action, suffix):
+  filename = PATHS[strtype] + '/' + abi
+  if len (SUFFIX):
+    filename += '-' + SUFFIX
+  return create_file(filename + '_' + action + suffix)
 
 def run_cmd(abi, action, cmd):
   builddir = build_dir (abi)
-  outfile = create_file(PATHS["logsdir"] + '/' + abi + '_' + action + '.out')
-  errfile = create_file(PATHS["logsdir"] + '/' + abi + '_' + action + '.err')
+  outfile = create_outfile('logsdir', abi, action, '.out')
+  errfile = create_outfile('logsdir', abi, action, '.err')
   proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
   proc.wait()
   return (abi, proc.returncode)
@@ -147,6 +152,8 @@ class Context(object):
       self.extra_config_opts.append("--enable-hardcoded-path-in-tests")
     if opts.cflags:
       self.extra_config_opts.append("CFLAGS={}".format(opts.cflags))
+      self.extra_config_opts.append("CPPFLAGS={}".format(opts.cflags))
+      self.extra_config_opts.append("CXXFLAGS={}".format(opts.cflags))
 
 
     self.keep = opts.keep
