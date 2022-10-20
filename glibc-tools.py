@@ -273,12 +273,16 @@ class Context(object):
                             {'arch' : 'armv7-thumb',
                              'ccopts': '-march=armv7-a -mfpu=vfpv3 -mthumb'},
                             {'variant': 'armv7-disable-multi-arch',
-			     'ccopts' : '-march=armv7-a -mfpu=vfpv3',
-			     'cfg' : ["--disable-multi-arch"]},
+                             'ccopts' : '-march=armv7-a -mfpu=vfpv3',
+                             'cfg' : ["--disable-multi-arch"]},
                             {'arch' : 'armv7-neon',
                              'ccopts': '-march=armv7-a -mfpu=neon'},
                             {'arch' : 'armv7-neonhard',
-                             'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'}])
+                             'ccopts': '-march=armv7-a -mfpu=neon -mfloat-abi=hard'},
+                            {'arch' : 'armv8',
+                             'ccopts': '-march=armv8-a -mfpu=neon'},
+                            {'arch' : 'armv9',
+                             'ccopts': '-march=armv9-a -mfpu=neon'}])
     self.add_config(arch='armeb',
                     os_name='linux-gnueabihf',
                     glibcs=[{},
@@ -291,8 +295,8 @@ class Context(object):
                             {'arch' : 'armeb-v7',
                              'ccopts': '-march=armv7-a -mfpu=vfpv3'},
                             {'variant': 'armv7-disable-multi-arch',
-			     'ccopts' : '-march=armv7-a -mfpu=vfpv3',
-			     'cfg' : ["--disable-multi-arch"]},
+                             'ccopts' : '-march=armv7-a -mfpu=vfpv3',
+                             'cfg' : ["--disable-multi-arch"]},
                             {'arch' : 'armeb-v7neon',
                              'ccopts': '-march=armv7-a -mfpu=neon'},
                             {'arch' : 'armeb-v7neonhard',
@@ -741,6 +745,8 @@ SPECIAL_LISTS = {
     "armv7-neon-linux-gnueabihf",
     "armv7-neonhard-linux-gnueabihf",
     "armv7-thumb-linux-gnueabihf",
+    "armv8-linux-gnueabihf",
+    "armv9-linux-gnueabihf"
   ],
 
   "armeb": [
