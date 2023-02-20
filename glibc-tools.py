@@ -422,6 +422,7 @@ class Context(object):
                             {'variant': 'z900', 'ccopts': '-march=z900'}, # arch5
                             {'variant': 'z10', 'ccopts': '-march=z10'},   # arch8
                             {'variant': 'z196', 'ccopts': '-march=z196'}, # arch9
+                            {'variant': 'z13', 'ccopts': '-march=z13'},   # arch?
                             {'arch'   : 's390', 'ccopts': '-m31'}])
     self.add_config(arch='csky',
                     os_name='linux-gnuabiv2',
@@ -733,6 +734,7 @@ SPECIAL_LISTS = {
     "s390x-linux-gnu-z10",
     "s390x-linux-gnu-z196",
     "s390x-linux-gnu-z900",
+    "s390x-linux-gnu-z13",
   ],
 
   "arm": [
