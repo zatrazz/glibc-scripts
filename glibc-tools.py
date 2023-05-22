@@ -816,9 +816,9 @@ def get_parser():
   parser.add_argument('--disable-werror', dest='disable_werror',
                       help='Do not use -Werror',
                       action='store_true', default=False)
-  parser.add_argument('--enable-hardcoded-path-in-tests', dest='hardcoded',
+  parser.add_argument('--disable-hardcoded-path-in-tests', dest='hardcoded',
                       help='Hardcode newly built glibc path in tests',
-                      action='store_true', default=False)
+                      action='store_false', default=True)
   parser.add_argument('--enable-kernel', dest='with_kernel',
                       help='Build with --enable-kernel')
   parser.add_argument('--gccversion', dest='gccversion',
