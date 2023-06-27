@@ -543,12 +543,14 @@ class Glibc(object):
   def lib_name(self, lib):
     cmd = self.tool_name("gcc") + " -print-file-name={}".format(lib)
     stdout = subprocess.getoutput(cmd)
-    return stdout
+    return stdout if os.path.exists (stdout) else ""
 
   def copylibs(self):
-    libgcc = self.lib_name("libgcc_s.so.1")
-    if libgcc == "libgcc_s.so.1":
-      libgcc = self.lib_name("libgcc_s.so")
+    libgcc = ""
+    for version in [ 1, 2, 4 ]:
+      libgcc = self.lib_name("libgcc_s.so.{}".format(version))
+      if libgcc:
+        break
     libstdcxx = self.lib_name("libstdc++.so.6")
     return ["cp", libgcc, libstdcxx, build_dir (self.name)]
 
