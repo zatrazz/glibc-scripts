@@ -24,9 +24,11 @@ def read_config():
   PATHS = config._sections['glibc-tools']
 
 ABIS = { "aarch64"      : "aarch64",
+         "arc"          : "arc",
          "alpha"        : "alpha",
          "arm"          : "arm-gnueabihf",
          "armeb"        : "armeb-gnueabihf",
+         "csky"         : "csky-gnuabiv2",
          "hppa"         : "hppa",
          "i686"         : "x86_64 -m32",
          "ia64"         : "ia64",
@@ -82,8 +84,9 @@ def create_temp_file(syscall):
   f.flush()
   return f
 
-def build_check(compiler, sysfile):
-  cmd = compiler + [ '-std=gnu11', '-c', sysfile.name ]
+def build_check(compiler, sysfile, abi):
+  output = "{}-{}.S".format(os.path.splitext(sysfile.name)[0], abi)
+  cmd = compiler + [ '-O2', '-std=gnu11', '-c', sysfile.name, '-S', '-o', output ]
   fnull = open(os.devnull, 'w')
   ret = subprocess.run(cmd, check=False, stdout=fnull, stderr=fnull)
   if ret.returncode != 0:
@@ -97,7 +100,7 @@ def check_syscall(args):
     for abi in sorted(ABIS.keys()):
       try:
         compiler = get_compiler_path(abi)
-        print ("  %20s: %s" % (abi, build_check(compiler, sysfile)))
+        print ("  %20s: %s" % (abi, build_check(compiler, sysfile, abi)))
       except:
         print ("  %20s: compiler not found" % abi)
 
@@ -110,11 +113,8 @@ def check_file(args):
       return
     print ("FILE: %s" % prog)
     for abi in sorted(ABIS.keys()):
-      try:
-        compiler = get_compiler_path(abi)
-        print ("  %20s: %s" % (abi, build_check(compiler, sysfile)))
-      except:
-        print ("  %20s: compiler not found" % abi)
+      compiler = get_compiler_path(abi)
+      print ("  %20s: %s" % (abi, build_check(compiler, sysfile, abi)))
 
 def get_parser():
   parser = argparse.ArgumentParser(description=__doc__)
@@ -124,7 +124,7 @@ def get_parser():
                         help='syscall to check (ex. openat)',
                         nargs='*')
   parser_1.set_defaults(func=check_syscall)
-  parser_2 = subparsers.add_parser('program', help='program to run')
+  parser_2 = subparsers.add_parser('program', help='program to build')
   parser_2.add_argument('programs',
                         help='file to build',
                         nargs='*')
@@ -135,10 +135,10 @@ def main(argv):
   read_config()
   parser = get_parser()
   args = parser.parse_args(argv)
-  try:
-    args.func(args)
-  except:
-    parser.print_help()
+  if len(vars(args)) == 0:
+      parser.print_help();
+      sys.exit(0)
+  args.func(args)
 
 if __name__ == "__main__":
   main(sys.argv[1:])
