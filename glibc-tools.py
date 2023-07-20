@@ -254,7 +254,8 @@ class Context(object):
     self.add_config(arch='alpha',
                     os_name='linux-gnu',
                     glibcs=[{},
-                            {'variant': 'ev6', 'ccopts': '-mcpu=ev6'}])
+                            {'variant': 'ev6', 'ccopts': '-mcpu=ev6'},
+                            {'variant': 'ev67', 'ccopts': '-mcpu=ev67'}])
     self.add_config(arch='arm',
                     os_name='linux-gnueabi',
                     glibcs=[{},
