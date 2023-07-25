@@ -125,7 +125,7 @@ def run_cmd(abi, action, cmd):
   errfile = create_outfile('logsdir', abi, action, '.err')
   proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
   proc.wait()
-  return (abi, proc.returncode)
+  return proc.returncode
 
 
 class Context(object):
@@ -187,10 +187,11 @@ class Context(object):
        ["configure", "make", "bench-build"])),
   ])
 
-  def run(self, action, glibcs):
+  def run(self, opts, glibcs):
     if not glibcs:
       glibcs = sorted(self.glibc_configs.keys())
 
+    action = opts.action
     if action == "list":
       return self.list_configs(glibcs)
 
@@ -210,12 +211,16 @@ class Context(object):
         if len(cmds) == 0:
           continue
 
+        def abiname(opts, abi):
+           return '{}{}{}'.format(abi,
+                                  '-gcc{}'.format(opts.gccversion) if opts.gccversion else '',
+                                  '-{}'.format(opts.suffix) if opts.suffix else '')
         future_to_abi = {executor.submit(run_cmd, abi, action, cmds[abi]) : \
-                         abi for abi in cmds.keys()}
+                         abiname(opts, abi) for abi in cmds.keys()}
         for future in concurrent.futures.as_completed(future_to_abi):
           abi = future_to_abi[future]
           try:
-            (abi, resultcode) = future.result()
+            resultcode = future.result()
           except Exception as exc:
             print('%r generated an exception: %s' % (abi, exc))
           else:
@@ -851,7 +856,7 @@ def main(argv):
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
 
   ctx = Context(opts)
-  ctx.run(opts.action, configs)
+  ctx.run(opts, configs)
 
 if __name__ == "__main__":
   main(sys.argv[1:])
