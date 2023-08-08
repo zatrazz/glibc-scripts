@@ -440,6 +440,10 @@ class Context(object):
                     variant='soft')
     self.add_config(arch='csky',
                     os_name='linux-gnuabiv2')
+    self.add_config(arch='sh3',
+                    os_name='linux-gnu')
+    self.add_config(arch='sh3eb',
+                    os_name='linux-gnu')
     self.add_config(arch='sh4',
                     os_name='linux-gnu')
     self.add_config(arch='sh4eb',
