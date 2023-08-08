@@ -248,7 +248,10 @@ class Context(object):
   def add_all_configs(self):
     """Add all known glibc build configurations."""
     self.add_config(arch='aarch64',
-                    os_name='linux-gnu')
+                    os_name='linux-gnu',
+                    glibcs=[{},
+                            {'variant': 'disable-multi-arch',
+                             'cfg' : ["--disable-multi-arch"]}])
     self.add_config(arch='aarch64_be',
                     os_name='linux-gnu')
     self.add_config(arch='arc',
@@ -277,11 +280,12 @@ class Context(object):
                              'ccopts': '-march=armv6t2 -mfpu=vfpv3'},
                             {'arch' : 'armv7a',
                              'ccopts': '-march=armv7-a -mfpu=vfpv3'},
+                            {'arch' : 'armv7a',
+                             'ccopts': '-march=armv7-a -mfpu=vfpv3',
+                             'variant' : 'disable-multi-arch',
+                             'cfg'  : ["--disable-multi-arch"]},
                             {'arch' : 'armv7a-thumb',
                              'ccopts': '-march=armv7-a -mfpu=vfpv3 -mthumb'},
-                            {'variant': 'armv7-disable-multi-arch',
-                             'ccopts' : '-march=armv7-a -mfpu=vfpv3',
-                             'cfg' : ["--disable-multi-arch"]},
                             {'arch' : 'armv7a-neon',
                              'ccopts': '-march=armv7-a -mfpu=neon'},
                             {'arch' : 'armv7a-neonhard',
@@ -301,9 +305,10 @@ class Context(object):
                              'ccopts': '-march=armv6t2 -mfpu=vfpv3'},
                             {'arch' : 'armeb-v7a',
                              'ccopts': '-march=armv7-a -mfpu=vfpv3'},
-                            {'variant': 'armv7a-disable-multi-arch',
-                             'ccopts' : '-march=armv7-a -mfpu=vfpv3',
-                             'cfg' : ["--disable-multi-arch"]},
+                            {'arch' : 'armeb-v7a',
+                             'ccopts': '-march=armv7-a -mfpu=vfpv3',
+                             'variant' : 'disable-multi-arch',
+                             'cfg'  : ["--disable-multi-arch"]},
                             {'arch' : 'armeb-v7a-neon',
                              'ccopts': '-march=armv7-a -mfpu=neon'},
                             {'arch' : 'armeb-v7neonhard',
@@ -374,8 +379,7 @@ class Context(object):
                             {'variant': 'power6-disable-multi-arch',  'ccopts': '-mcpu=power6',  'cfg' : ["--with-cpu=power6",  "--disable-multi-arch"]},
                             {'variant': 'power6x-disable-multi-arch', 'ccopts': '-mcpu=power6x', 'cfg' : ["--with-cpu=power6x", "--disable-multi-arch"]},
                             {'variant': 'power7-disable-multi-arch',  'ccopts': '-mcpu=power7',  'cfg' : ["--with-cpu=power7",  "--disable-multi-arch"]},
-                            {'variant': 'power8-disable-multi-arch',  'ccopts': '-mcpu=power8',  'cfg' : ["--with-cpu=power8",  "--disable-multi-arch"]},
-                            {'variant': 'disable-multi-arch', 'cfg' :  ["--disable-multi-arch"]}])
+                            {'variant': 'power8-disable-multi-arch',  'ccopts': '-mcpu=power8',  'cfg' : ["--with-cpu=power8",  "--disable-multi-arch"]}])
     self.add_config(arch='powerpc64',
                     os_name='linux-gnu',
                     glibcs=[{},
