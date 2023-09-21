@@ -790,6 +790,17 @@ SPECIAL_LISTS = {
     "sparcv9-linux-gnu-disable-multi-arch",
   ],
 
+  "mips": [
+    "mips-linux-gnu",
+    "mips-linux-gnu-mips16",
+    "mips-linux-gnu-soft",
+    "mips64-linux-gnu",
+    "mips64-n32-linux-gnu",
+    "mips64el-linux-gnu",
+    "mips64el-n32-linux-gnu",
+    "mipsel-linux-gnu",
+  ],
+
   "x86_64": [
     "x86_64-linux-gnu",
     "x86_64-linux-gnu-disable-multi-arch",
