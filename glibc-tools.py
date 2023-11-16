@@ -840,10 +840,10 @@ def get_parser():
                       choices=('yes', 'no'), default='yes')
   parser.add_argument('--enable-profile', dest='enable_profile',
                       help='Enable profile (default is no)',
-                      choices=('yes', 'no'), default='no')
+                      choices=('yes', 'no'), default='yes')
   parser.add_argument('--enable-fortify-source', dest='enable_fortify',
                       help='Use -D_FORTIFY_SOURCE',
-                      choices=('1', '2', '3', 'yes', 'no'), default='no')
+                      choices=('1', '2', '3', 'yes', 'no'), default='2')
   parser.add_argument('--disable-multi-arch', dest='enable_multiarch',
                       help='Disable iFUNC sysdep selection',
                       action='store_false', default=True)
