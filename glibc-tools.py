@@ -474,6 +474,8 @@ class Context(object):
                                    'ccopts': '-m32 -mlong-double-128 -mcpu=v9',
                                    'cfg': ['--disable-multi-arch']}])
     self.add_config(arch='x86_64',
+                    os_name='gnu')
+    self.add_config(arch='x86_64',
                     os_name='linux-gnu',
                     glibcs=[{'cfg': ['--enable-cet']},
                             {'variant': 'x32', 'ccopts': '-mx32'},
@@ -675,6 +677,7 @@ SPECIAL_LISTS = {
     "x86_64-linux-gnu-x32",
 
     "i686-gnu",
+    "x86_64-gnu",
   ],
 
   "abi32" : [
