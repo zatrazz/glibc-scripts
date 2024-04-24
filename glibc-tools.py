@@ -331,6 +331,9 @@ class Context(object):
     self.add_config(arch='loongarch64',
                     os_name='linux-gnu',
                     variant='lp64d')
+    self.add_config(arch='loongarch64',
+                    os_name='linux-gnu',
+                    variant='lp64s')
     self.add_config(arch='microblaze',
                     os_name='linux-gnu')
     self.add_config(arch='microblazeel',
@@ -361,7 +364,8 @@ class Context(object):
                     os_name='linux-gnu')
     self.add_config(arch='or1k',
                     os_name='linux-gnu',
-                    variant='soft')
+                    glibcs=[{'variant': 'soft'},
+                            {'variant': 'hard',  'ccopts': '-mhard-float'}])
     self.add_config(arch='powerpc',
                     os_name='linux-gnu',
                     variant='soft')
@@ -434,11 +438,13 @@ class Context(object):
     self.add_config(arch='s390x',
                     os_name='linux-gnu',
                     glibcs=[{},
+                            {'variant' : 'disable-multi-arch', 'cfg' : ['--disable-multi-arch']},
                             {'variant': 'z900', 'ccopts': '-march=z900'}, # arch5
                             {'variant': 'z10', 'ccopts': '-march=z10'},   # arch8
                             {'variant': 'z196', 'ccopts': '-march=z196'}, # arch9
                             {'variant': 'z13', 'ccopts': '-march=z13'},   # arch?
-                            {'arch'   : 's390', 'ccopts': '-m31'}])
+                            {'arch'   : 's390', 'ccopts': '-m31'},
+                            {'arch'   : 's390', 'variant' : 'disable-multi-arch', 'cfg' : ['--disable-multi-arch'], 'ccopts' : '-m31'}])
     self.add_config(arch='csky',
                     os_name='linux-gnuabiv2',
                     variant='soft')
@@ -617,7 +623,6 @@ SPECIAL_LISTS = {
     "csky-linux-gnuabiv2",
     "hppa-linux-gnu",
     "i686-linux-gnu",
-    "ia64-linux-gnu",
     "loongarch64-linux-gnu-lp64d",
     "m68k-linux-gnu",
     "microblaze-linux-gnu",
@@ -650,7 +655,6 @@ SPECIAL_LISTS = {
     "csky-linux-gnuabiv2",
     "hppa-linux-gnu",
     "i686-linux-gnu",
-    "ia64-linux-gnu",
     "loongarch64-linux-gnu-lp64d",
     "m68k-linux-gnu",
     "m68k-linux-gnu-coldfire",
@@ -753,7 +757,9 @@ SPECIAL_LISTS = {
 
   "zseries": [
     "s390-linux-gnu",
+    "s390-linux-gnu-disable-multi-arch",
     "s390x-linux-gnu",
+    "s390x-linux-gnu-disable-multi-arch",
     "s390x-linux-gnu-z10",
     "s390x-linux-gnu-z196",
     "s390x-linux-gnu-z900",
@@ -811,7 +817,15 @@ SPECIAL_LISTS = {
     "x86_64-linux-gnu-v3",
     "x86_64-linux-gnu-v4",
     "x86_64-linux-gnu-x32"
-  ]
+  ],
+
+  "i686": [
+    "i486-linux-gnu",
+    "i586-linux-gnu",
+    "i686-linux-gnu",
+    "i686-linux-gnu-disable-multi-arch",
+    "i686-linux-gnu-fp",
+  ],
 }
 
 def get_parser():
