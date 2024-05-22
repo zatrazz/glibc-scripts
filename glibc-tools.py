@@ -29,6 +29,7 @@ ACTIONS = (
   'check-abi',
   'update-abi',
   'bench-build',
+  'run-cmd',
   'list')
 
 def read_config(gccversion, srcdir, suffix):
@@ -185,6 +186,9 @@ class Context(object):
     ("bench-build",
       (lambda self, abi : self.glibc_configs[abi].bench_build(),
        ["configure", "make", "bench-build"])),
+    ("run-cmd",
+      (lambda self, abi : self.glibc_configs[abi].run_cmd(),
+       ["configure", "make", "run-cmd"])),
   ])
 
   def run(self, opts, glibcs):
@@ -364,6 +368,7 @@ class Context(object):
                     os_name='linux-gnu')
     self.add_config(arch='or1k',
                     os_name='linux-gnu',
+                    variant='soft',
                     glibcs=[{'variant': 'soft'},
                             {'variant': 'hard',  'ccopts': '-mhard-float'}])
     self.add_config(arch='powerpc',
@@ -605,6 +610,13 @@ class Glibc(object):
     return ['make',
             'bench-build',
             '-j%d' % (self.ctx.build_jobs)]
+
+  def run_cmd(self):
+    return ['make',
+            '-j%d' % (self.ctx.build_jobs),
+            'math/tests',
+            'build-math-static-tests=yes',
+            'run-built-tests=no']
 
 
 def parallelize_type(string):
