@@ -140,7 +140,6 @@ class Context(object):
     self.extra_config_opts.append("--enable-stack-protector={}".format(opts.enable_stackprot))
     if opts.disable_pie:
       self.extra_config_opts.append("--disable-default-pie")
-    self.extra_config_opts.append("--enable-tunables={}".format(opts.enable_tunables))
     self.extra_config_opts.append("--enable-bind-now={}".format(opts.enable_bind_now))
     self.extra_config_opts.append("--enable-profile={}".format(opts.enable_profile))
     self.extra_config_opts.append("--enable-fortify-source={}".format(opts.enable_fortify))
@@ -185,7 +184,7 @@ class Context(object):
        ["configure", "make", "update-abi"])),
     ("bench-build",
       (lambda self, abi : self.glibc_configs[abi].bench_build(),
-       ["configure", "make", "bench-build"])),
+       ["configure", "copylibs", "make", "bench-build"])),
     ("run-cmd",
       (lambda self, abi : self.glibc_configs[abi].run_cmd(),
        ["configure", "make", "run-cmd"])),
@@ -495,7 +494,7 @@ class Context(object):
                     os_name='gnu')
     self.add_config(arch='x86_64',
                     os_name='linux-gnu',
-                    glibcs=[{'cfg': ['--enable-cet']},
+                    glibcs=[{'cfg': [], 'ccopts' : '-march=x86-64'},
                             {'variant': 'x32', 'ccopts': '-mx32'},
                             {'arch': 'i686', 'ccopts': '-m32 -march=i686'},
                             {'variant': 'v2', 'ccopts' : '-march=x86-64-v2'},
@@ -513,7 +512,10 @@ class Context(object):
                                    'ccopts': '-m32 -march=i586'},
                                   {'variant': 'fp',
                                    'arch': 'i686',
-                                   'ccopts': '-m32 -march=i686 -fno-omit-frame-pointer'}])
+                                   'ccopts': '-m32 -march=i686 -fno-omit-frame-pointer'},
+                                  {'variant': 'sse',
+                                   'arch': 'i686',
+                                   'ccopts': '-m32 -march=i686 -msse2 -mfpmath=sse'}])
 
   def list_configs(self, glibcs):
     for abi in glibcs:
@@ -621,9 +623,7 @@ class Glibc(object):
   def run_cmd(self):
     return ['make',
             '-j%d' % (self.ctx.build_jobs),
-            'math/tests',
-            'build-math-static-tests=yes',
-            'run-built-tests=no']
+            'update-syscall-lists']
 
 
 def parallelize_type(string):
@@ -648,7 +648,6 @@ SPECIAL_LISTS = {
     "mips64el-linux-gnu",
     "mips64el-n32-linux-gnu",
     "mipsel-linux-gnu",
-    "nios2-linux-gnu",
     "or1k-linux-gnu-soft",
     "powerpc64le-linux-gnu",
     "powerpc64-linux-gnu",
@@ -682,11 +681,11 @@ SPECIAL_LISTS = {
     "mips64el-linux-gnu",
     "mips64el-n32-linux-gnu",
     "mipsel-linux-gnu",
-    "nios2-linux-gnu",
     "or1k-linux-gnu-soft",
     "powerpc64le-linux-gnu",
     "powerpc64-linux-gnu",
     "powerpc-linux-gnu",
+    "powerpc-linux-gnu-power4",
     "powerpc-linux-gnu-soft",
     "riscv32-linux-gnu-rv32imafdc-ilp32d",
     "riscv64-linux-gnu-rv64imafdc-lp64d",
@@ -716,7 +715,7 @@ SPECIAL_LISTS = {
     "mips64-n32-linux-gnu",
     "mips-linux-gnu",
     "mips-linux-gnu-soft",
-    "nios2-linux-gnu",
+    #"nios2-linux-gnu",
     "or1k-linux-gnu-soft",
     "powerpc-linux-gnu",
     "powerpc-linux-gnu-soft",
@@ -822,11 +821,14 @@ SPECIAL_LISTS = {
     "mips-linux-gnu",
     "mips-linux-gnu-mips16",
     "mips-linux-gnu-soft",
+    "mipsisa32r6el-linux-gnu",
     "mips64-linux-gnu",
     "mips64-n32-linux-gnu",
+    "mipsel-linux-gnu",
     "mips64el-linux-gnu",
     "mips64el-n32-linux-gnu",
-    "mipsel-linux-gnu",
+    "mipsisa64r6el-linux-gnu",
+    "mipsisa64r6el-n64-linux-gnu",
   ],
 
   "x86_64": [
@@ -865,9 +867,6 @@ def get_parser():
   parser.add_argument('--enable-stack-protector', dest='enable_stackprot',
                       help='Enable stack protection',
                       choices=('no', 'yes', 'all', 'strong'), default='all')
-  parser.add_argument('--enable-tunables', dest='enable_tunables',
-                      help='Enable tunables (default is yes)',
-                      choices=('yes', 'no'), default='yes')
   parser.add_argument('--disable-default-pie', dest='disable_pie',
                       help='Disable PIE (default is yes)',
                       action='store_true', default=False)
