@@ -154,6 +154,8 @@ class Context(object):
       self.extra_config_opts.append("--enable-hardcoded-path-in-tests")
     if opts.enable_sframe:
       self.extra_config_opts.append("--enable-sframe")
+    if opts.enable_ubsan:
+      self.extra_config_opts.append("--enable-ubsan")
     if opts.cflags:
       self.extra_config_opts.append("CFLAGS={}".format(opts.cflags))
       self.extra_config_opts.append("CPPFLAGS={}".format(opts.cflags))
@@ -951,6 +953,9 @@ def get_parser():
                       help='Use a different gcc version', default='')
   parser.add_argument('--enable-sframe', dest='enable_sframe',
                       help='Build with --enable-sframe',
+                      action='store_true', default=False)
+  parser.add_argument('--enable-ubsan', dest='enable_ubsan',
+                      help='Build with --enable-ubsan',
                       action='store_true', default=False)
   parser.add_argument('--cflags', dest='cflags',
                       help='Add the CFLAGS on build configuration', default='')
