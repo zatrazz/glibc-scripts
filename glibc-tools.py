@@ -151,6 +151,8 @@ class Context(object):
       self.extra_config_opts.append("--enable-kernel={}".format(opts.with_kernel))
     if opts.hardcoded:
       self.extra_config_opts.append("--enable-hardcoded-path-in-tests")
+    if opts.enable_sframe:
+      self.extra_config_opts.append("--enable-sframe")
     if opts.cflags:
       self.extra_config_opts.append("CFLAGS={}".format(opts.cflags))
       self.extra_config_opts.append("CPPFLAGS={}".format(opts.cflags))
@@ -363,6 +365,23 @@ class Context(object):
                              'ccopts': '-mabi=32'},
                             {'arch': 'mips64el',
                              'ccopts': '-mabi=64'}])
+    self.add_config(arch='mipsisa64r5el',
+                    os_name='linux-gnu',
+                    glibcs=[{'arch': 'mipsisa64r5el',
+                             'ccopts': '-mabi=64'},
+                            {'arch': 'mipsisa64r5el',
+                             'variant': "micromips",
+                             'ccopts': '-mabi=64 -mmicromips'},
+                            {'arch': 'mipsisa32r5el',
+                             'ccopts': '-mabi=32'},
+                            {'arch': 'mipsisa32r5el',
+                             'variant': "micromips",
+                             'ccopts': '-mabi=32 -mmicromips'},
+                            {'arch': 'mipsisa64r5el-n32',
+                             'ccopts': '-mabi=n32 -mmicromips'},
+                            {'arch': 'mipsisa64r5el-n32',
+                             'variant': 'micromips',
+                             'ccopts': '-mabi=32 -mmicromips'}])
     self.add_config(arch='mipsisa64r6el',
                     os_name='linux-gnu',
                     glibcs=[{'arch': 'mipsisa64r6el'},
@@ -501,6 +520,13 @@ class Context(object):
                             {'variant': 'v3', 'ccopts' : '-march=x86-64-v3'},
                             {'variant': 'v4', 'ccopts' : '-march=x86-64-v4'}],
                     extra_glibcs=[{'variant': 'disable-multi-arch',
+                                   'ccopts' : '-march=x86-64',
+                                   'cfg': ['--disable-multi-arch']},
+                                  {'variant': 'v2-disable-multi-arch',
+                                   'ccopts' : '-march=x86-64-v2',
+                                   'cfg': ['--disable-multi-arch']},
+                                  {'variant': 'v3-disable-multi-arch',
+                                   'ccopts' : '-march=x86-64-v3',
                                    'cfg': ['--disable-multi-arch']},
                                   {'variant': 'disable-multi-arch',
                                    'arch': 'i686',
@@ -786,11 +812,11 @@ SPECIAL_LISTS = {
 
   "arm": [
     "arm-linux-gnueabihf",
-    "arm-linux-gnueabihf-armv7-disable-multi-arch",
     "armv5-linux-gnueabihf",
     "armv6-linux-gnueabihf",
     "armv6t2-linux-gnueabihf",
     "armv7-linux-gnueabihf",
+    "arm-linux-gnueabihf-armv7-disable-multi-arch"
     "armv7-neon-linux-gnueabihf",
     "armv7-neonhard-linux-gnueabihf",
     "armv7-thumb-linux-gnueabihf",
@@ -847,6 +873,20 @@ SPECIAL_LISTS = {
     "i686-linux-gnu-disable-multi-arch",
     "i686-linux-gnu-fp",
   ],
+
+  "mips": [
+    "mips-linux-gnu",
+    "mips-linux-gnu-mips16",
+    "mips-linux-gnu-soft",
+    "mips64-linux-gnu",
+    "mips64-n32-linux-gnu",
+    "mips64el-linux-gnu",
+    "mips64el-n32-linux-gnu",
+    "mipsel-linux-gnu",
+    "mipsisa32r6el-linux-gnu",
+    "mipsisa64r6el-linux-gnu",
+    "mipsisa64r6el-n64-linux-gnu"
+  ],
 }
 
 def get_parser():
@@ -892,6 +932,9 @@ def get_parser():
                       help='Build with --enable-kernel')
   parser.add_argument('--gccversion', dest='gccversion',
                       help='Use a different gcc version', default='')
+  parser.add_argument('--enable-sframe', dest='enable_sframe',
+                      help='Build with --enable-sframe',
+                      action='store_true', default=False)
   parser.add_argument('--cflags', dest='cflags',
                       help='Add the CFLAGS on build configuration', default='')
   parser.add_argument('action',

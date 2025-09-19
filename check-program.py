@@ -24,25 +24,26 @@ def read_config():
   PATHS = config._sections['glibc-tools']
 
 ABIS = { "aarch64"      : "aarch64",
-         "arc"          : "arc",
+         "arc"          : "arc-gnuhf",
          "alpha"        : "alpha",
          "arm"          : "arm-gnueabihf",
          "armeb"        : "armeb-gnueabihf",
          "csky"         : "csky-gnuabiv2",
          "hppa"         : "hppa",
          "i686"         : "x86_64 -m32",
-         "ia64"         : "ia64",
+         #"ia64"         : "ia64",
          "m68k"         : "m68k",
          "microblaze"   : "microblaze",
          "microblazeel" : "microblazeel",
          "mips64"       : "mips64 -mabi=64",
          "mips64-n32"   : "mips64 -mabi=n32",
          "mips"         : "mips64 -mabi=32",
-         "nios2"        : "nios2",
+         #"nios2"        : "nios2",
          "powerpc64"    : "powerpc64",
          "powerpc"      : "powerpc",
          "riscv64"      : "riscv64",
          "riscv32"      : "riscv32",
+         "or1k"         : "or1k",
          "s390"         : "s390x -m31",
          "s390x"        : "s390x",
          "sh4"          : "sh4",
@@ -86,7 +87,7 @@ def create_temp_file(syscall):
 
 def build_check(compiler, sysfile, abi):
   output = "{}-{}.S".format(os.path.splitext(sysfile.name)[0], abi)
-  cmd = compiler + [ '-O2', '-std=gnu11', '-c', sysfile.name, '-S', '-o', output ]
+  cmd = compiler + [ '-O2', '-std=gnu23', '-c', sysfile.name, '-S', '-o', output ]
   fnull = open(os.devnull, 'w')
   ret = subprocess.run(cmd, check=False, stdout=fnull, stderr=fnull)
   if ret.returncode != 0:
