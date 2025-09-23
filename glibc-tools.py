@@ -360,9 +360,13 @@ class Context(object):
                              'ccopts': '-mabi=32'}])
     self.add_config(arch='mips64el',
                     os_name='linux-gnu',
-                    glibcs=[{'arch': 'mips64el-n32'},
+                    glibcs=[{'arch': 'mips64el-n32',
+                             'ccopts' : '-mabi=n32'},
                             {'arch': 'mipsel',
                              'ccopts': '-mabi=32'},
+                            {'arch': 'mipsel',
+                             'variant' : 'mips16',
+                             'ccopts': '-mabi=32 -mips16'},
                             {'arch': 'mips64el',
                              'ccopts': '-mabi=64'}])
     self.add_config(arch='mipsisa64r5el',
