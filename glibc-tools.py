@@ -159,6 +159,10 @@ class Context(object):
       self.extra_config_opts.append("CPPFLAGS={}".format(opts.cflags))
       self.extra_config_opts.append("CXXFLAGS={}".format(opts.cflags))
 
+    if opts.test_cc:
+      self.extra_config_opts.append("TEST_CC={}".format(opts.test_cc))
+    if opts.test_cxx:
+      self.extra_config_opts.append("TEST_CXX={}".format(opts.test_cxx))
 
     self.keep = opts.keep
     self.status_log_list = []
@@ -950,6 +954,12 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--cflags', dest='cflags',
                       help='Add the CFLAGS on build configuration', default='')
+  parser.add_argument('--test_cc', dest='test_cc',
+                      help='Whether to use a different CC than default use to build test',
+                      default='')
+  parser.add_argument('--test_cxxs', dest='test_cxx',
+                      help='Whether to use a different CXX than default use to build test',
+                      default='')
   parser.add_argument('action',
                       help='What to do',
                       choices=ACTIONS)
