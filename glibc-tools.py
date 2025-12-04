@@ -29,6 +29,7 @@ ACTIONS = (
   'check-abi',
   'update-abi',
   'bench-build',
+  'update-syscall-lists',
   'run-cmd',
   'list')
 
@@ -172,6 +173,9 @@ class Context(object):
     ("configure",
       (lambda self, abi : self.glibc_configs[abi].configure(self.extra_config_opts),
        ["configure", "copylibs"])),
+    ("update-syscall-lists",
+      (lambda self, abi : self.glibc_configs[abi].update_syscall_lists(),
+       ["configure", "copylibs", "update-syscall-lists"])),
     ("make",
       (lambda self, abi : self.glibc_configs[abi].build(),
        ["configure", "copylibs", "make"])),
@@ -334,8 +338,7 @@ class Context(object):
                     os_name='linux-gnu',
                     variant='coldfire')
     self.add_config(arch='loongarch64',
-                    os_name='linux-gnu',
-                    variant='lp64d')
+                    os_name='linux-gnuf64')
     self.add_config(arch='loongarch64',
                     os_name='linux-gnu',
                     variant='lp64s')
@@ -397,7 +400,6 @@ class Context(object):
                     os_name='linux-gnu')
     self.add_config(arch='or1k',
                     os_name='linux-gnu',
-                    variant='soft',
                     glibcs=[{'variant': 'soft'},
                             {'variant': 'hard',  'ccopts': '-mhard-float'}])
     self.add_config(arch='powerpc',
@@ -650,6 +652,10 @@ class Glibc(object):
             'bench-build',
             '-j%d' % (self.ctx.build_jobs)]
 
+  def update_syscall_lists(self):
+    return ['make',
+            'update-syscall-lists']
+
   def run_cmd(self):
     return ['make',
             '-j%d' % (self.ctx.build_jobs),
@@ -672,7 +678,7 @@ SPECIAL_LISTS = {
     "csky-linux-gnuabiv2",
     "hppa-linux-gnu",
     "i686-linux-gnu",
-    "loongarch64-linux-gnu-lp64d",
+    "loongarch64-linux-gnuf64",
     "m68k-linux-gnu",
     "microblaze-linux-gnu",
     "mips64el-linux-gnu",
@@ -703,7 +709,7 @@ SPECIAL_LISTS = {
     "csky-linux-gnuabiv2",
     "hppa-linux-gnu",
     "i686-linux-gnu",
-    "loongarch64-linux-gnu-lp64d",
+    "loongarch64-linux-gnuf64",
     "m68k-linux-gnu",
     "m68k-linux-gnu-coldfire",
     "microblaze-linux-gnu",
@@ -711,6 +717,7 @@ SPECIAL_LISTS = {
     "mips64el-linux-gnu",
     "mips64el-n32-linux-gnu",
     "mipsel-linux-gnu",
+    "mips-linux-gnu-soft",
     "or1k-linux-gnu-soft",
     "powerpc64le-linux-gnu",
     "powerpc64-linux-gnu",
