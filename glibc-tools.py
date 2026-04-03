@@ -261,9 +261,10 @@ class Context(object):
     """Add all known glibc build configurations."""
     self.add_config(arch='aarch64',
                     os_name='linux-gnu',
-                    glibcs=[{'cfg' : ['--enable-memory-tagging']},
-                            {'variant': 'disable-multi-arch',
-                             'cfg' : ["--disable-multi-arch"]}])
+                    glibcs=[{},
+                            {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]},
+                            {'variant': 'mtag', 'cfg' : ["--enable-memory-tagging"]}
+                    ])
     self.add_config(arch='aarch64_be',
                     os_name='linux-gnu')
     self.add_config(arch='arc',
