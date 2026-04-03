@@ -156,7 +156,6 @@ class Context(object):
       self.extra_config_opts.append("--enable-sframe")
     if opts.cflags:
       self.extra_config_opts.append("CFLAGS={}".format(opts.cflags))
-      self.extra_config_opts.append("CPPFLAGS={}".format(opts.cflags))
       self.extra_config_opts.append("CXXFLAGS={}".format(opts.cflags))
 
     if opts.test_cc:
