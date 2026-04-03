@@ -341,6 +341,10 @@ class Context(object):
     self.add_config(arch='m68k',
                     os_name='linux-gnu',
                     variant='coldfire')
+    self.add_config(arch='loongarch32',
+                    os_name='linux-gnu')
+    self.add_config(arch='loongarch32',
+                    os_name='linux-gnusf')
     self.add_config(arch='loongarch64',
                     os_name='linux-gnuf64')
     self.add_config(arch='loongarch64',
