@@ -697,7 +697,6 @@ SPECIAL_LISTS = {
     "powerpc-linux-gnu",
     "riscv32-linux-gnu-rv32imafdc-ilp32d",
     "riscv64-linux-gnu-rv64imafdc-lp64d",
-    "s390-linux-gnu",
     "s390x-linux-gnu",
     "sh4-linux-gnu",
     "sparc64-linux-gnu",
@@ -818,8 +817,6 @@ SPECIAL_LISTS = {
   ],
 
   "zseries": [
-    "s390-linux-gnu",
-    "s390-linux-gnu-disable-multi-arch",
     "s390x-linux-gnu",
     "s390x-linux-gnu-disable-multi-arch",
     "s390x-linux-gnu-z10",
