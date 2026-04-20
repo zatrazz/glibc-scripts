@@ -263,7 +263,9 @@ class Context(object):
                     os_name='linux-gnu',
                     glibcs=[{},
                             {'variant': 'disable-multi-arch', 'cfg' : ["--disable-multi-arch"]},
-                            {'variant': 'mtag', 'cfg' : ["--enable-memory-tagging"]}
+                            {'variant': 'mtag', 'cfg' : ["--enable-memory-tagging"]},
+                            {'variant': 'memtag', 'cfg' : ["--enable-aarch64-memtag-abi"]},
+                            {'variant': 'memtag-mtag', 'cfg' : ["--enable-aarch64-memtag-abi", "--enable-memory-tagging"]}
                     ])
     self.add_config(arch='aarch64_be',
                     os_name='linux-gnu')
