@@ -340,6 +340,9 @@ class Context(object):
     self.add_config(arch='m68k',
                     os_name='linux-gnu',
                     variant='coldfire')
+    self.add_config(arch='m68k',
+                    os_name='linux-gnu',
+                    variant='coldfire-soft')
     self.add_config(arch='loongarch32',
                     os_name='linux-gnu')
     self.add_config(arch='loongarch32',
@@ -366,8 +369,9 @@ class Context(object):
     self.add_config(arch='mips64',
                     os_name='linux-gnu',
                     variant='soft',
-                    glibcs=[{'arch': 'mips', 'variant' : 'soft',
-                             'ccopts': '-mabi=32'}])
+                    glibcs=[{'arch': 'mips', 'variant' : 'soft', 'ccopts': '-mabi=32'},
+                            {'arch': 'mips64', 'variant' : 'soft', 'ccopts' :'-mabi=64'},
+                            {'arch': 'mips64n32', 'variant' : 'soft', 'ccopts' :'-mabi=n32'}])
     self.add_config(arch='mips64el',
                     os_name='linux-gnu',
                     glibcs=[{'arch': 'mips64el-n32',
@@ -509,13 +513,17 @@ class Context(object):
                     variant='soft')
     self.add_config(arch='sparc64',
                     os_name='linux-gnu',
-                    glibcs=[{'ccopts' : "-mcpu=niagara"},
+                    glibcs=[{'ccopts' : "-mcpu=niagara",
+                             'cfg': ['--disable-default-pie']},
                             {'arch': 'sparc',
-                             'ccopts': '-m32 -mlong-double-128 -mcpu=leon3'},
+                             'ccopts': '-m32 -mlong-double-128 -mcpu=leon3',
+                             'cfg': ['--disable-default-pie']},
                             {'arch': 'sparcv8',
-                             'ccopts': '-m32 -mlong-double-128 -mcpu=leon3'},
+                             'ccopts': '-m32 -mlong-double-128 -mcpu=leon3',
+                             'cfg': ['--disable-default-pie']},
                             {'arch': 'sparcv9',
-                             'ccopts': '-m32 -mlong-double-128 -mcpu=v9'}],
+                             'ccopts': '-m32 -mlong-double-128 -mcpu=v9',
+                             'cfg': ['--disable-default-pie']}],
                     extra_glibcs=[{'variant': 'disable-multi-arch',
                                    'cfg': ['--disable-multi-arch']},
                                   {'variant': 'disable-multi-arch',

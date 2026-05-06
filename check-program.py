@@ -7,6 +7,7 @@ import argparse
 import subprocess
 import tempfile
 import configparser
+import shlex
 from pathlib import Path
 from itertools import chain
 
@@ -86,9 +87,14 @@ def create_temp_file(syscall):
   f.flush()
   return f
 
-def build_check(compiler, sysfile, abi):
+def build_check(args, compiler, sysfile, abi):
   output = "{}-{}.S".format(os.path.splitext(sysfile.name)[0], abi)
-  cmd = compiler + [ '-O2', '-std=gnu23', '-c', sysfile.name, '-S', '-o', output ]
+  cmdargs = [ '-c', sysfile.name, '-S', '-o', output ]
+  if args.cflags:
+    cmdargs = shlex.split(args.cflags) + cmdargs;
+  else:
+    cmdargs = [ '-O2', '-std=gnu11' ] + cmdargs;
+  cmd = compiler + cmdargs
   fnull = open(os.devnull, 'w')
   ret = subprocess.run(cmd, check=False, stdout=fnull, stderr=fnull)
   if ret.returncode != 0:
@@ -102,7 +108,7 @@ def check_syscall(args):
     for abi in sorted(ABIS.keys()):
       try:
         compiler = get_compiler_path(abi)
-        print ("  %20s: %s" % (abi, build_check(compiler, sysfile, abi)))
+        print ("  %20s: %s" % (abi, build_check(args, compiler, sysfile, abi)))
       except:
         print ("  %20s: compiler not found" % abi)
 
@@ -116,7 +122,7 @@ def check_file(args):
     print ("FILE: %s" % prog)
     for abi in sorted(ABIS.keys()):
       compiler = get_compiler_path(abi)
-      print ("  %20s: %s" % (abi, build_check(compiler, sysfile, abi)))
+      print ("  %20s: %s" % (abi, build_check(args, compiler, sysfile, abi)))
 
 def get_parser():
   parser = argparse.ArgumentParser(description=__doc__)
@@ -127,6 +133,8 @@ def get_parser():
                         nargs='*')
   parser_1.set_defaults(func=check_syscall)
   parser_2 = subparsers.add_parser('program', help='program to build')
+  parser_2.add_argument('--cflags',
+                        help='cflags to use')
   parser_2.add_argument('programs',
                         help='file to build',
                         nargs='*')
