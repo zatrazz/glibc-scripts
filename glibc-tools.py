@@ -406,10 +406,10 @@ class Context(object):
                              'variant': "micromips",
                              'ccopts': '-mabi=32 -mmicromips'},
                             {'arch': 'mipsisa64r5el-n32',
-                             'ccopts': '-mabi=n32 -mmicromips'},
+                             'ccopts': '-mabi=n32'},
                             {'arch': 'mipsisa64r5el-n32',
                              'variant': 'micromips',
-                             'ccopts': '-mabi=32 -mmicromips'}])
+                             'ccopts': '-mabi=n32 -mmicromips'}])
     self.add_config(arch='mipsisa64r6el',
                     os_name='linux-gnu',
                     glibcs=[{'arch': 'mipsisa64r6el'},
