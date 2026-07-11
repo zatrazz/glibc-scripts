@@ -382,7 +382,7 @@ class Context(object):
                     variant='soft',
                     glibcs=[{'arch': 'mips', 'variant' : 'soft', 'ccopts': '-mabi=32'},
                             {'arch': 'mips64', 'variant' : 'soft', 'ccopts' :'-mabi=64'},
-                            {'arch': 'mips64n32', 'variant' : 'soft', 'ccopts' :'-mabi=n32'}])
+                            {'arch': 'mips64-n32', 'variant' : 'soft', 'ccopts' :'-mabi=n32'}])
     self.add_config(arch='mips64el',
                     os_name='linux-gnu',
                     glibcs=[{'arch': 'mips64el-n32',
