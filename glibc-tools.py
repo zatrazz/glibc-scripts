@@ -368,7 +368,8 @@ class Context(object):
                     os_name='linux-gnu')
     self.add_config(arch='mips64',
                     os_name='linux-gnu',
-                    glibcs=[{'arch': 'mips64-n32'},
+                    glibcs=[{'arch': 'mips64-n32',
+                             'ccopts': '-mabi=n32'},
                             {'arch': 'mips',
                              'ccopts': '-mabi=32'},
                             {'arch': 'mips',
