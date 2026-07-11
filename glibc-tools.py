@@ -118,8 +118,7 @@ class bcolors:
 
 def create_outfile(strtype, abi, action, suffix):
   filename = PATHS[strtype] + '/' + abi
-  if len (SUFFIX):
-    filename += '-' + SUFFIX
+  filename += SUFFIX
   return create_file(filename + '_' + action + suffix)
 
 def run_cmd(abi, action, cmd):
