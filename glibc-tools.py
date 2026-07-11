@@ -906,20 +906,6 @@ SPECIAL_LISTS = {
     "i686-linux-gnu-disable-multi-arch",
     "i686-linux-gnu-fp",
   ],
-
-  "mips": [
-    "mips-linux-gnu",
-    "mips-linux-gnu-mips16",
-    "mips-linux-gnu-soft",
-    "mips64-linux-gnu",
-    "mips64-n32-linux-gnu",
-    "mips64el-linux-gnu",
-    "mips64el-n32-linux-gnu",
-    "mipsel-linux-gnu",
-    "mipsisa32r6el-linux-gnu",
-    "mipsisa64r6el-linux-gnu",
-    "mipsisa64r6el-n64-linux-gnu"
-  ],
 }
 
 def get_parser():
