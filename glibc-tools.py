@@ -222,16 +222,16 @@ class Context(object):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
          as executor:
-      for action, cmds in cmds.items():
-        if len(cmds) == 0:
+      for act_name, act_cmds in cmds.items():
+        if len(act_cmds) == 0:
           continue
 
         def abiname(opts, abi):
            return '{}{}{}'.format(abi,
                                   '-gcc{}'.format(opts.gccversion) if opts.gccversion else '',
                                   '-{}'.format(opts.suffix) if opts.suffix else '')
-        future_to_abi = {executor.submit(run_cmd, abi, action, cmds[abi]) : \
-                         abiname(opts, abi) for abi in cmds.keys()}
+        future_to_abi = {executor.submit(run_cmd, abi, act_name, act_cmds[abi]) : \
+                         abiname(opts, abi) for abi in act_cmds.keys()}
         for future in concurrent.futures.as_completed(future_to_abi):
           abi = future_to_abi[future]
           try:
@@ -239,7 +239,7 @@ class Context(object):
           except Exception as exc:
             print('%r generated an exception: %s' % (abi, exc))
           else:
-            msg = "%s | %s" % (action, abi)
+            msg = "%s | %s" % (act_name, abi)
             if resultcode == 0:
               print (bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
             else:
