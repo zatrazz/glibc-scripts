@@ -934,7 +934,7 @@ def get_parser():
                       choices=('yes', 'no'), default='yes')
   parser.add_argument('--enable-profile', dest='enable_profile',
                       help='Enable profile (default is no)',
-                      choices=('yes', 'no'), default='yes')
+                      choices=('yes', 'no'), default='no')
   parser.add_argument('--enable-fortify-source', dest='enable_fortify',
                       help='Use -D_FORTIFY_SOURCE',
                       choices=('1', '2', '3', 'yes', 'no'), default='2')
