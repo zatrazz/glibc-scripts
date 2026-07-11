@@ -13,8 +13,8 @@ from collections import OrderedDict
 import concurrent.futures
 
 """
-glibc-tools.py is a script that configures, build, and check multiple
-glibc builds using different compilers targerting different architectures.
+glibc-tools.py is a script that configures, builds, and checks multiple
+glibc builds using different compilers targeting different architectures.
 """
 
 PATHS = {}
@@ -67,17 +67,17 @@ def remove_recreate_dirs(*args):
 
 def create_file(filename):
   os.makedirs(os.path.dirname(filename), exist_ok=True)
-  return open(filename, "w");
+  return open(filename, "w")
 
 def build_dir(abi):
   return PATHS['builddir'] + '/' + abi + PATHS['gccversion'] + SUFFIX
 
-PLATFORM_MAP = { "ppc64le" : "powerpc64le" };
+PLATFORM_MAP = { "ppc64le" : "powerpc64le" }
 
 def build_triplet():
   platstr = platform.machine()
   if platstr in PLATFORM_MAP:
-    platstr = PLATFORM_MAP[platstr];
+    platstr = PLATFORM_MAP[platstr]
   return platstr + "-linux-gnu"
 
 class Config(object):
@@ -610,7 +610,7 @@ class Glibc(object):
 
   def tool_name(self, tool):
     """Return the name of a cross-compilation tool."""
-    ctool = PATHS["compilers"] + '/' + self.compiler.name + '/bin/';
+    ctool = PATHS["compilers"] + '/' + self.compiler.name + '/bin/'
     ctool += self.compiler.triplet + '-' + tool
     if self.ccopts and (tool == 'gcc' or tool == 'g++'):
       ctool = '%s %s' % (ctool, self.ccopts)
