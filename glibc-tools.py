@@ -258,12 +258,12 @@ class Context(object):
     cfg = Config(self, **args)
     if cfg.name in self.configs:
       print('error: duplicate config %s' % cfg.name)
-      exit(1)
+      sys.exit(1)
     self.configs[cfg.name] = cfg
     for c in cfg.all_glibcs:
       if c.name in self.glibc_configs:
         print('error: duplicate glibc config %s' % c.name)
-        exit(1)
+        sys.exit(1)
       self.glibc_configs[c.name] = c
 
 
