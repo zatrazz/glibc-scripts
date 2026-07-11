@@ -643,7 +643,8 @@ class Glibc(object):
       if libgcc:
         break
     libstdcxx = self.lib_name("libstdc++.so.6")
-    return ["cp", libgcc, libstdcxx, build_dir (self.name)]
+    libs = [lib for lib in (libgcc, libstdcxx) if lib]
+    return ["cp"] + libs + [build_dir (self.name)]
 
   def build(self):
     return ['make',
