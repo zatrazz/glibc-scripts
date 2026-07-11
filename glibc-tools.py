@@ -208,7 +208,10 @@ class Context(object):
 
     action = opts.action
     if action == "list":
-      return self.list_configs(glibcs)
+      self.list_configs(glibcs)
+      return 0
+
+    failures = 0
 
     cmds = OrderedDict((action, OrderedDict()) for action in ACTIONS)
 
@@ -238,12 +241,16 @@ class Context(object):
             resultcode = future.result()
           except Exception as exc:
             print('%r generated an exception: %s' % (abi, exc))
+            failures += 1
           else:
             msg = "%s | %s" % (act_name, abi)
             if resultcode == 0:
               print (bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
             else:
               print (bcolors.FAIL + "FAIL : " + bcolors.ENDC + msg)
+              failures += 1
+
+    return failures
 
 
   def add_config(self, **args):
@@ -981,7 +988,8 @@ def main(argv):
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
 
   ctx = Context(opts)
-  ctx.run(opts, configs)
+  failures = ctx.run(opts, configs)
+  sys.exit(1 if failures else 0)
 
 if __name__ == "__main__":
   main(sys.argv[1:])
