@@ -988,7 +988,6 @@ def get_parser():
 def main(argv):
   parser = get_parser()
   opts = parser.parse_args(argv)
-  ctx = Context(opts)
 
   read_config (opts.gccversion, opts.srcdir, opts.suffix)
 
