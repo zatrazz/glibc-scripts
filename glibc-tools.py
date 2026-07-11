@@ -46,7 +46,7 @@ def read_config(gccversion, srcdir, suffix):
     print("error: config invalid, run glibc-tools-config.py")
     sys.exit(1)
   global PATHS, SUFFIX
-  PATHS = config._sections['glibc-tools']
+  PATHS = dict(config['glibc-tools'])
   PATHS['gccversion'] = "{0}{1}".format("-gcc" if gccversion else "", gccversion)
   PATHS['compilers'] = PATHS['compilers'] + gccversion
   if srcdir:
