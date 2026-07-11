@@ -123,10 +123,10 @@ def create_outfile(strtype, abi, action, suffix):
 
 def run_cmd(abi, action, cmd):
   builddir = build_dir (abi)
-  outfile = create_outfile('logsdir', abi, action, '.out')
-  errfile = create_outfile('logsdir', abi, action, '.err')
-  proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
-  proc.wait()
+  with create_outfile('logsdir', abi, action, '.out') as outfile, \
+       create_outfile('logsdir', abi, action, '.err') as errfile:
+    proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
+    proc.wait()
   return proc.returncode
 
 
