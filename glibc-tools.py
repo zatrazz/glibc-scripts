@@ -959,7 +959,7 @@ def get_parser():
   parser.add_argument('--test_cc', dest='test_cc',
                       help='Whether to use a different CC than default use to build test',
                       default='')
-  parser.add_argument('--test_cxxs', dest='test_cxx',
+  parser.add_argument('--test_cxx', dest='test_cxx',
                       help='Whether to use a different CXX than default use to build test',
                       default='')
   parser.add_argument('action',
