@@ -11,6 +11,7 @@ import configparser
 from py3compat import *
 from collections import OrderedDict
 import concurrent.futures
+import threading
 
 """
 glibc-tools.py is a script that configures, builds, and checks multiple
@@ -115,6 +116,87 @@ class bcolors:
   ENDC = '\033[0m'
   BOLD = '\033[1m'
   UNDERLINE = '\033[4m'
+
+class Reporter(object):
+  """Live one-line-per-ABI progress display.
+
+  Every ABI owns a fixed line, listed in alphabetical order and updated in
+  place as the ABI advances through its build steps:
+
+    <abi>:            | <current action> | <PASS|FAIL>
+
+  The ABI name is shown in bold cyan and the action in yellow; the action
+  column tracks the step being run, and the status column is empty while
+  the step is in progress and shows the step's result once it finishes, in
+  blue for a success and red for a failure.
+
+  When the output is not a terminal (or has more ABIs than fit on it), the
+  in-place redraw is dropped and the line is printed whenever a step
+  finishes instead.
+  """
+
+  _ABI_COLOR = bcolors.BOLD + bcolors.OKCYAN
+  _ACT_COLOR = bcolors.WARNING
+
+  # status -> (label, color)
+  _STATUS = {
+    'run':  ('', ''),
+    'pass': ('PASS', bcolors.OKBLUE),
+    'fail': ('FAIL', bcolors.FAIL),
+  }
+
+  def __init__(self, entries, steps):
+    # entries: list of (abi, display name); steps: ordered step names.
+    self.order = sorted((name for _, name in entries))
+    self.abi_name = dict(entries)
+    self.namew = max((len(n) for n in self.order), default=0) + 1
+    self.actw = max((len(s) for s in steps), default=0)
+    self.state = {name: ('', 'run') for name in self.order}
+    self.lock = threading.Lock()
+
+    rows = shutil.get_terminal_size((0, 0)).lines
+    self.live = sys.stdout.isatty() and 0 < len(self.order) < rows
+    if self.live:
+      sys.stdout.write(''.join(self._line(n) + '\n' for n in self.order))
+      sys.stdout.flush()
+
+  @staticmethod
+  def _paint(text, color):
+    return color + text + bcolors.ENDC if color else text
+
+  def _line(self, name):
+    action, status = self.state[name]
+    label, scolor = self._STATUS[status]
+    abi = self._paint('%-*s' % (self.namew, name + ':'), self._ABI_COLOR)
+    act = self._paint('%-*s' % (self.actw, action), self._ACT_COLOR)
+    return '%s | %s | %s' % (abi, act, self._paint(label, scolor))
+
+  def _redraw(self):
+    # Move to the top of the block and rewrite every line in place.
+    sys.stdout.write('\033[%dA' % len(self.order))
+    for name in self.order:
+      sys.stdout.write('\r\033[K' + self._line(name) + '\n')
+    sys.stdout.flush()
+
+  def running(self, abi, step):
+    name = self.abi_name[abi]
+    with self.lock:
+      self.state[name] = (step, 'run')
+      if self.live:
+        self._redraw()
+
+  def finished(self, abi, step, ok):
+    name = self.abi_name[abi]
+    with self.lock:
+      self.state[name] = (step, 'pass' if ok else 'fail')
+      if self.live:
+        self._redraw()
+      else:
+        print(self._line(name))
+
+  def failed(self, abi, step='<exception>'):
+    self.finished(abi, step, False)
+
 
 def create_outfile(strtype, abi, action, suffix):
   filename = PATHS[strtype] + '/' + abi
@@ -226,45 +308,42 @@ class Context(object):
       for abi in glibcs:
         remove_recreate_dirs(build_dir (abi))
 
-    def report(act_name, abi, resultcode):
-      msg = "%s | %s" % (act_name, abiname(abi))
-      if resultcode == 0:
-        print (bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
-      else:
-        print (bcolors.FAIL + "FAIL : " + bcolors.ENDC + msg)
+    reporter = Reporter([(abi, abiname(abi)) for abi in glibcs], steps)
 
     # Run the whole step chain for a single ABI, stopping at the first failure
     # so a broken configure does not spawn a doomed make.  Pipelining per ABI
     # (rather than one action across all ABIs with a barrier between actions)
     # lets a build in its parallel make phase fill the cores left idle by
     # another build's serial configure phase, keeping the CPUs busy without
-    # raising the peak number of concurrent jobs.
+    # raising the peak number of concurrent jobs.  The reporter shows each
+    # ABI's progress live as the steps complete.
     def run_abi(abi):
-      results = []
       for act in steps:
+        reporter.running(abi, act)
         cmd = self.CMD_MAP[act][0](self, abi)
         resultcode = run_cmd(abi, act, cmd)
-        results.append((act, resultcode))
+        reporter.finished(abi, act, resultcode == 0)
         if resultcode != 0:
-          break
-      return results
+          return 1
+      return 0
 
     failures = 0
+    errors = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
          as executor:
       future_to_abi = {executor.submit(run_abi, abi) : abi for abi in glibcs}
       for future in concurrent.futures.as_completed(future_to_abi):
         abi = future_to_abi[future]
         try:
-          results = future.result()
+          failures += future.result()
         except Exception as exc:
-          print('%r generated an exception: %s' % (abiname(abi), exc))
+          reporter.failed(abi)
+          errors.append('%r generated an exception: %s' % (abiname(abi), exc))
           failures += 1
-          continue
-        for act_name, resultcode in results:
-          report(act_name, abi, resultcode)
-          if resultcode != 0:
-            failures += 1
+
+    # Printed after the live block so the messages land below it, not amid it.
+    for msg in errors:
+      print(msg)
 
     return failures
 
