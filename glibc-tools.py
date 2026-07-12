@@ -137,6 +137,8 @@ class Context(object):
 
     self.run_built_tests = 'yes' if opts.run_built_tests else 'no'
 
+    self.timeoutfactor = opts.timeoutfactor
+
     self.extra_config_opts = []
     self.extra_config_opts.append("--enable-stack-protector={}".format(opts.enable_stackprot))
     if opts.disable_pie:
@@ -658,17 +660,22 @@ class Glibc(object):
     return ['make',
             '-j%d' % (self.ctx.build_jobs)]
 
+  def timeoutfactor_opt(self):
+    if self.ctx.timeoutfactor:
+      return ['TIMEOUTFACTOR=%s' % (self.ctx.timeoutfactor)]
+    return []
+
   def check(self):
     return ['make',
             'check',
             'run-built-tests=%s' % (self.ctx.run_built_tests),
-            '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.build_jobs)] + self.timeoutfactor_opt()
 
   def check_parallel(self):
     return ['make',
             'check-parallel',
             'run-built-tests=%s' % (self.ctx.run_built_tests),
-            '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.build_jobs)] + self.timeoutfactor_opt()
 
   def check_abi(self):
     return ['make',
@@ -928,6 +935,8 @@ def get_parser():
   parser.add_argument('-t', dest='run_built_tests',
                       help='Run built tests',
                       action='store_true', default=False)
+  parser.add_argument('--timeoutfactor', dest='timeoutfactor',
+                      help='Set the TIMEOUTFACTOR for make check', default='')
   parser.add_argument('-s', dest='srcdir', default='',
                       help='glibc source tree to use')
   parser.add_argument('-u', dest='suffix', default='',
