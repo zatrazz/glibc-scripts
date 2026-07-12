@@ -211,6 +211,19 @@ def run_cmd(abi, action, cmd):
     proc.wait()
   return proc.returncode
 
+# Actions that run the test suite and leave a summary in tests.sum.
+TEST_ACTIONS = ('check', 'check-parallel')
+
+def failing_tests(abi):
+  # The failing tests of a "make check" run are the FAIL: lines of the test
+  # summary left in the build directory.
+  sumfile = build_dir (abi) + '/tests.sum'
+  try:
+    with open(sumfile) as f:
+      return [line.rstrip('\n') for line in f if line.startswith('FAIL:')]
+  except OSError:
+    return []
+
 
 class Context(object):
   def __init__ (self, opts):
@@ -314,6 +327,9 @@ class Context(object):
     # of marching through the remaining ones.
     abort = threading.Event()
 
+    # Collects the failing tests of any ABI whose check step fails.
+    test_fails = {}
+
     # Run the whole step chain for a single ABI, stopping at the first failure
     # so a broken configure does not spawn a doomed make.  Pipelining per ABI
     # (rather than one action across all ABIs with a barrier between actions)
@@ -332,6 +348,10 @@ class Context(object):
           return 1
         reporter.finished(abi, act, resultcode == 0)
         if resultcode != 0:
+          if act in TEST_ACTIONS:
+            tests = failing_tests(abi)
+            if tests:
+              test_fails[abiname(abi)] = tests
           return 1
       return 0
 
@@ -360,6 +380,13 @@ class Context(object):
     # Printed after the live block so the messages land below it, not amid it.
     for msg in errors:
       print(msg)
+    for name in sorted(test_fails):
+      tests = test_fails[name]
+      print('%s%s: %d test failure%s%s'
+            % (bcolors.FAIL, name, len(tests), '' if len(tests) == 1 else 's',
+               bcolors.ENDC))
+      for line in tests:
+        print('  ' + line)
 
     return failures
 
