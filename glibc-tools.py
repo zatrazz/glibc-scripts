@@ -310,6 +310,10 @@ class Context(object):
 
     reporter = Reporter([(abi, abiname(abi)) for abi in glibcs], steps)
 
+    # Set on Ctrl-C so in-flight builds stop after their current step instead
+    # of marching through the remaining ones.
+    abort = threading.Event()
+
     # Run the whole step chain for a single ABI, stopping at the first failure
     # so a broken configure does not spawn a doomed make.  Pipelining per ABI
     # (rather than one action across all ABIs with a barrier between actions)
@@ -319,9 +323,13 @@ class Context(object):
     # ABI's progress live as the steps complete.
     def run_abi(abi):
       for act in steps:
+        if abort.is_set():
+          return 1
         reporter.running(abi, act)
         cmd = self.CMD_MAP[act][0](self, abi)
         resultcode = run_cmd(abi, act, cmd)
+        if abort.is_set():
+          return 1
         reporter.finished(abi, act, resultcode == 0)
         if resultcode != 0:
           return 1
@@ -332,14 +340,22 @@ class Context(object):
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
          as executor:
       future_to_abi = {executor.submit(run_abi, abi) : abi for abi in glibcs}
-      for future in concurrent.futures.as_completed(future_to_abi):
-        abi = future_to_abi[future]
-        try:
-          failures += future.result()
-        except Exception as exc:
-          reporter.failed(abi)
-          errors.append('%r generated an exception: %s' % (abiname(abi), exc))
-          failures += 1
+      try:
+        for future in concurrent.futures.as_completed(future_to_abi):
+          abi = future_to_abi[future]
+          try:
+            failures += future.result()
+          except Exception as exc:
+            reporter.failed(abi)
+            errors.append('%r generated an exception: %s' % (abiname(abi), exc))
+            failures += 1
+      except KeyboardInterrupt:
+        # Drop the queued builds and stop the running ones; the executor's
+        # shutdown then only waits for the already-signalled builds to exit.
+        abort.set()
+        for future in future_to_abi:
+          future.cancel()
+        raise
 
     # Printed after the live block so the messages land below it, not amid it.
     for msg in errors:
@@ -1160,4 +1176,8 @@ def main(argv):
   sys.exit(1 if failures else 0)
 
 if __name__ == "__main__":
-  main(sys.argv[1:])
+  try:
+    main(sys.argv[1:])
+  except KeyboardInterrupt:
+    print('\n' + bcolors.WARNING + 'Interrupted, aborting builds.' + bcolors.ENDC)
+    sys.exit(130)
