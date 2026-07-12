@@ -213,44 +213,58 @@ class Context(object):
       self.list_configs(glibcs)
       return 0
 
-    failures = 0
+    def abiname(abi):
+      return '{}{}{}'.format(abi,
+                             '-gcc{}'.format(opts.gccversion) if opts.gccversion else '',
+                             '-{}'.format(opts.suffix) if opts.suffix else '')
 
-    cmds = OrderedDict((action, OrderedDict()) for action in ACTIONS)
+    # The steps required to reach the requested action, in canonical order.
+    needed = set(self.CMD_MAP[action][1])
+    steps = [act for act in ACTIONS if act in needed]
 
-    cmd = self.CMD_MAP[action]
-    for abi in glibcs:
-      for act in cmd[1]:
-        cmds[act][abi] = self.CMD_MAP[act][0](self, abi)
-
-      if self.keep is False:
+    if self.keep is False:
+      for abi in glibcs:
         remove_recreate_dirs(build_dir (abi))
 
+    def report(act_name, abi, resultcode):
+      msg = "%s | %s" % (act_name, abiname(abi))
+      if resultcode == 0:
+        print (bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
+      else:
+        print (bcolors.FAIL + "FAIL : " + bcolors.ENDC + msg)
+
+    # Run the whole step chain for a single ABI, stopping at the first failure
+    # so a broken configure does not spawn a doomed make.  Pipelining per ABI
+    # (rather than one action across all ABIs with a barrier between actions)
+    # lets a build in its parallel make phase fill the cores left idle by
+    # another build's serial configure phase, keeping the CPUs busy without
+    # raising the peak number of concurrent jobs.
+    def run_abi(abi):
+      results = []
+      for act in steps:
+        cmd = self.CMD_MAP[act][0](self, abi)
+        resultcode = run_cmd(abi, act, cmd)
+        results.append((act, resultcode))
+        if resultcode != 0:
+          break
+      return results
+
+    failures = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
          as executor:
-      for act_name, act_cmds in cmds.items():
-        if len(act_cmds) == 0:
+      future_to_abi = {executor.submit(run_abi, abi) : abi for abi in glibcs}
+      for future in concurrent.futures.as_completed(future_to_abi):
+        abi = future_to_abi[future]
+        try:
+          results = future.result()
+        except Exception as exc:
+          print('%r generated an exception: %s' % (abiname(abi), exc))
+          failures += 1
           continue
-
-        def abiname(opts, abi):
-           return '{}{}{}'.format(abi,
-                                  '-gcc{}'.format(opts.gccversion) if opts.gccversion else '',
-                                  '-{}'.format(opts.suffix) if opts.suffix else '')
-        future_to_abi = {executor.submit(run_cmd, abi, act_name, act_cmds[abi]) : \
-                         abiname(opts, abi) for abi in act_cmds.keys()}
-        for future in concurrent.futures.as_completed(future_to_abi):
-          abi = future_to_abi[future]
-          try:
-            resultcode = future.result()
-          except Exception as exc:
-            print('%r generated an exception: %s' % (abi, exc))
+        for act_name, resultcode in results:
+          report(act_name, abi, resultcode)
+          if resultcode != 0:
             failures += 1
-          else:
-            msg = "%s | %s" % (act_name, abi)
-            if resultcode == 0:
-              print (bcolors.OKBLUE + "PASS : " + bcolors.ENDC + msg)
-            else:
-              print (bcolors.FAIL + "FAIL : " + bcolors.ENDC + msg)
-              failures += 1
 
     return failures
 
