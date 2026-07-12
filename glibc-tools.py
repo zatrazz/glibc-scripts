@@ -26,6 +26,7 @@ ACTIONS = (
   'copylibs',
   'make',
   'check',
+  'check-parallel',
   'check-abi',
   'update-abi',
   'bench-build',
@@ -185,6 +186,9 @@ class Context(object):
     ("check",
       (lambda self, abi : self.glibc_configs[abi].check(),
        ["configure", "copylibs", "make", "check"])),
+    ("check-parallel",
+      (lambda self, abi : self.glibc_configs[abi].check_parallel(),
+       ["configure", "copylibs", "make", "check-parallel"])),
     ("check-abi",
       (lambda self, abi : self.glibc_configs[abi].check_abi(),
        ["configure", "make", "check-abi"])),
@@ -649,6 +653,12 @@ class Glibc(object):
   def check(self):
     return ['make',
             'check',
+            'run-built-tests=%s' % (self.ctx.run_built_tests),
+            '-j%d' % (self.ctx.build_jobs)]
+
+  def check_parallel(self):
+    return ['make',
+            'check-parallel',
             'run-built-tests=%s' % (self.ctx.run_built_tests),
             '-j%d' % (self.ctx.build_jobs)]
 
