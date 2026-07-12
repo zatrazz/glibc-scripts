@@ -443,7 +443,7 @@ class Context(object):
                             {'variant': 'power5-disable-multi-arch',  'ccopts': '-mcpu=power5',  'cfg' : ["--with-cpu=power5",  "--disable-multi-arch"]},
                             {'variant': 'power5+-disable-multi-arch', 'ccopts': '-mcpu=power5+', 'cfg' : ["--with-cpu=power5+", "--disable-multi-arch"]},
                             {'variant': 'power6-disable-multi-arch',  'ccopts': '-mcpu=power6',  'cfg' : ["--with-cpu=power6",  "--disable-multi-arch"]},
-                            {'variant': 'power6x-disable-multi-arch', 'ccopts': '-mcpu=power6x', 'cfg' : ["--with-cpu=power6x", "--disable-multi-arch"]},
+                            {'variant': 'power6x-disable-multi-arch', 'ccopts': '-mcpu=power6',  'cfg' : ["--with-cpu=power6",  "--disable-multi-arch"]},
                             {'variant': 'power7-disable-multi-arch',  'ccopts': '-mcpu=power7',  'cfg' : ["--with-cpu=power7",  "--disable-multi-arch"]},
                             {'variant': 'power8-disable-multi-arch',  'ccopts': '-mcpu=power8',  'cfg' : ["--with-cpu=power8",  "--disable-multi-arch"]}])
     self.add_config(arch='powerpc64',
