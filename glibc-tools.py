@@ -703,10 +703,58 @@ class Glibc(object):
 
 
 def parallelize_type(string):
+  if string == 'auto':
+    return ['auto']
   fields = string.split(':')
   if len(fields) == 1:
     return [ int(fields[0]), 1 ]
   return [ int(fields[0]), int(fields[1]) ]
+
+def available_cpus():
+  try:
+    return len(os.sched_getaffinity(0))
+  except AttributeError:
+    return os.cpu_count() or 1
+
+# Upper bound on the make -j jobs per build that "-p auto" targets.  Newer
+# glibc versions build well in parallel but different ABIs takes different
+# times to build, so running one build per core (make -j1) leaves cores idle
+# once the short builds are done and only the long ones remain.  Giving each
+# build a healthy make -j and running fewer of them concurrently keeps those
+# trailing builds spread across the freed cores; this is a good sweet spot
+# before the serial link/ar steps of a single build limit its own speedup.
+JOBS_PER_BUILD = 6
+
+DEFAULT_OVERCOMMIT=40
+
+def default_jobs_per_build(ncpus):
+  # Default make -j per build for "-p auto".  On machines with few cores the
+  # JOBS_PER_BUILD sweet spot is tuned down to half the cores so that at least
+  # a couple of builds still run concurrently instead of collapsing into a
+  # single serial build.
+  return min(JOBS_PER_BUILD, max(1, ncpus // 2))
+
+def auto_parallelize(nconfigs, overcommit=0, jobs_per_build=None):
+  # Autotune the number of ABIs built in parallel and the make -j jobs given
+  # to each build from the number of ABIs to build and the available CPUs.
+  # Aim for jobs_per_build jobs per build and run as many such builds as the
+  # CPU budget (the CPU count plus the overcommit) allows, capped by the
+  # number of configurations, then hand each build an even share of the
+  # budget.  The overcommit keeps the CPUs busy during the mostly serial
+  # configure phases without heavily oversubscribing the already
+  # well-parallelized builds.
+  ncpus = available_cpus()
+  nconfigs = max(1, nconfigs)
+  if jobs_per_build is None:
+    jobs_per_build = default_jobs_per_build(ncpus)
+  jobs_per_build = max(1, jobs_per_build)
+  budget = max(1, round(ncpus * (1 + overcommit / 100)))
+  parallelize = max(1, min(nconfigs, budget // jobs_per_build))
+  # Round the per-build jobs up so the overcommit is not lost to integer
+  # division: with 24 CPUs the 10% budget of 26 must show up as an extra -j
+  # (3 builds of -j9) rather than being floored back to -j8.
+  build_jobs = max(1, -(-budget // parallelize))
+  return [ parallelize, build_jobs ]
 
 SPECIAL_LISTS = {
   # Most of the supported Linux ABIs
@@ -927,8 +975,19 @@ SPECIAL_LISTS = {
 def get_parser():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('-p', dest='parallelize',
-                      help='Run a number of parallel build with make -j',
+                      help='Run a number of parallel builds with make -j, as '
+                           'PARALLEL[:JOBS] (JOBS defaults to 1). Use "auto" to '
+                           'autotune both values from the number of ABIs to '
+                           'build and the available CPUs',
                       type=parallelize_type, default="1:%s" % os.cpu_count())
+  parser.add_argument('--overcommit', dest='overcommit',
+                      help='Percentage of CPU overcommit used by "-p auto" '
+                           '(default: {})'.format(DEFAULT_OVERCOMMIT),
+                      type=float, default=DEFAULT_OVERCOMMIT)
+  parser.add_argument('--jobs-per-build', dest='jobs_per_build',
+                      help='make -j jobs per build targeted by "-p auto" '
+                           '(default: auto-tuned from the CPU count)',
+                      type=int, default=None)
   parser.add_argument('-k', dest='keep',
                       help='Keep old file and just run the command',
                       action='store_true', default=False)
@@ -996,6 +1055,12 @@ def main(argv):
   read_config (opts.gccversion, opts.srcdir, opts.suffix)
 
   configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
+
+  if opts.parallelize == ['auto']:
+    opts.parallelize = auto_parallelize(len(configs), opts.overcommit,
+                                        opts.jobs_per_build)
+    print("auto-parallelize: %d ABIs in parallel, make -j%d each"
+          % (opts.parallelize[0], opts.parallelize[1]))
 
   ctx = Context(opts)
   failures = ctx.run(opts, configs)
