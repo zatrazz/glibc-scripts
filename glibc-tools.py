@@ -5,6 +5,7 @@ import os
 import shutil
 import argparse
 import subprocess
+import math
 import platform
 from itertools import chain
 import configparser
@@ -886,7 +887,7 @@ def auto_parallelize(nconfigs, overcommit=0, jobs_per_build=None):
   # Round the per-build jobs up so the overcommit is not lost to integer
   # division: with 24 CPUs the 10% budget of 26 must show up as an extra -j
   # (3 builds of -j9) rather than being floored back to -j8.
-  build_jobs = max(1, -(-budget // parallelize))
+  build_jobs = max(1, math.ceil(budget / parallelize))
   return [ parallelize, build_jobs ]
 
 SPECIAL_LISTS = {
