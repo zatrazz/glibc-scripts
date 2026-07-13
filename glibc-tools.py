@@ -6,6 +6,7 @@ import shutil
 import argparse
 import subprocess
 import math
+import time
 import platform
 from itertools import chain
 import configparser
@@ -116,18 +117,64 @@ class bcolors:
   BOLD = '\033[1m'
   UNDERLINE = '\033[4m'
 
+def format_duration(seconds):
+  """Format a wall-clock duration as a compact HhMmSs string."""
+  seconds = int(round(seconds))
+  h, rem = divmod(seconds, 3600)
+  m, s = divmod(rem, 60)
+  if h:
+    return '%dh%02dm%02ds' % (h, m, s)
+  if m:
+    return '%dm%02ds' % (m, s)
+  return '%ds' % s
+
+def print_timings(steps, timings, total_elapsed):
+  """Print a per-step, per-ABI and total wall-clock timing summary.
+
+  timings maps each ABI display name to a {step: elapsed_seconds} dict; the
+  per-ABI total is the sum of its steps (steps run serially within an ABI)
+  while total_elapsed is the wall-clock time of the whole invocation (ABIs
+  run concurrently, so it is typically far less than the sum of the rows).
+  """
+  cols = list(steps) + ['total']
+  rows = []
+  for name in sorted(timings):
+    times = timings[name]
+    cells = [format_duration(times[s]) if s in times else '-' for s in steps]
+    cells.append(format_duration(sum(times.values())))
+    rows.append((name, cells))
+  if not rows:
+    return
+  namew = max(len(n) for n, _ in rows)
+  colw = [max(len(cols[i]), max(len(cells[i]) for _, cells in rows))
+          for i in range(len(cols))]
+
+  def fmt_row(name_field, cells):
+    return name_field + '  ' + '  '.join('%*s' % (colw[i], cells[i])
+                                         for i in range(len(cols)))
+
+  print(bcolors.BOLD + 'Timings:' + bcolors.ENDC)
+  print(fmt_row(' ' * namew, cols))
+  for name, cells in rows:
+    name_field = bcolors.BOLD + bcolors.OKCYAN + ('%-*s' % (namew, name)) \
+                 + bcolors.ENDC
+    print(fmt_row(name_field, cells))
+  print('%stotal:%s %s' % (bcolors.BOLD, bcolors.ENDC,
+                           format_duration(total_elapsed)))
+
 class Reporter:
   """Live one-line-per-ABI progress display.
 
   Every ABI owns a fixed line, listed in alphabetical order and updated in
   place as the ABI advances through its build steps:
 
-    <abi>:            | <current action> | <PASS|FAIL>
+    <abi>:            | <current action> | <PASS|FAIL> | <time>
 
   The ABI name is shown in bold cyan and the action in yellow; the action
-  column tracks the step being run, and the status column is empty while
-  the step is in progress and shows the step's result once it finishes, in
-  blue for a success and red for a failure.
+  column tracks the step being run, the status column is empty while the
+  step is in progress and shows the step's result once it finishes (in blue
+  for a success and red for a failure), and the time column shows how long
+  the finished step took.
 
   When the output is not a terminal (or has more ABIs than fit on it), the
   in-place redraw is dropped and the line is printed whenever a step
@@ -150,7 +197,7 @@ class Reporter:
     self.abi_name = dict(entries)
     self.namew = max((len(n) for n in self.order), default=0) + 1
     self.actw = max((len(s) for s in steps), default=0)
-    self.state = {name: ('', 'run') for name in self.order}
+    self.state = {name: ('', 'run', None) for name in self.order}
     self.lock = threading.Lock()
 
     rows = shutil.get_terminal_size((0, 0)).lines
@@ -164,11 +211,13 @@ class Reporter:
     return color + text + bcolors.ENDC if color else text
 
   def _line(self, name):
-    action, status = self.state[name]
+    action, status, elapsed = self.state[name]
     label, scolor = self._STATUS[status]
     abi = self._paint('%-*s' % (self.namew, name + ':'), self._ABI_COLOR)
     act = self._paint('%-*s' % (self.actw, action), self._ACT_COLOR)
-    return '%s | %s | %s' % (abi, act, self._paint(label, scolor))
+    stat = self._paint('%-4s' % label, scolor)
+    tstr = format_duration(elapsed) if elapsed is not None else ''
+    return '%s | %s | %s | %s' % (abi, act, stat, tstr)
 
   def _redraw(self):
     # Move to the top of the block and rewrite every line in place.
@@ -180,14 +229,14 @@ class Reporter:
   def running(self, abi, step):
     name = self.abi_name[abi]
     with self.lock:
-      self.state[name] = (step, 'run')
+      self.state[name] = (step, 'run', None)
       if self.live:
         self._redraw()
 
-  def finished(self, abi, step, ok):
+  def finished(self, abi, step, ok, elapsed=None):
     name = self.abi_name[abi]
     with self.lock:
-      self.state[name] = (step, 'pass' if ok else 'fail')
+      self.state[name] = (step, 'pass' if ok else 'fail', elapsed)
       if self.live:
         self._redraw()
       else:
@@ -328,6 +377,10 @@ class Context:
     # Collects the failing tests of any ABI whose check step fails.
     test_fails = {}
 
+    # Per-ABI {step: elapsed_seconds}, filled in as each step finishes.  Each
+    # run_abi thread only touches its own entry, so no locking is needed.
+    timings = {}
+
     # Run the whole step chain for a single ABI, stopping at the first failure
     # so a broken configure does not spawn a doomed make.  Pipelining per ABI
     # (rather than one action across all ABIs with a barrier between actions)
@@ -336,15 +389,20 @@ class Context:
     # raising the peak number of concurrent jobs.  The reporter shows each
     # ABI's progress live as the steps complete.
     def run_abi(abi):
+      abi_times = {}
+      timings[abiname(abi)] = abi_times
       for act in steps:
         if abort.is_set():
           return 1
         reporter.running(abi, act)
         cmd = self.CMD_MAP[act][0](self, abi)
+        start = time.monotonic()
         resultcode = run_cmd(abi, act, cmd)
+        elapsed = time.monotonic() - start
+        abi_times[act] = elapsed
         if abort.is_set():
           return 1
-        reporter.finished(abi, act, resultcode == 0)
+        reporter.finished(abi, act, resultcode == 0, elapsed)
         if resultcode != 0:
           if act in TEST_ACTIONS:
             tests = failing_tests(abi)
@@ -355,6 +413,7 @@ class Context:
 
     failures = 0
     errors = []
+    start_time = time.monotonic()
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
          as executor:
       future_to_abi = {executor.submit(run_abi, abi) : abi for abi in glibcs}
@@ -374,6 +433,7 @@ class Context:
         for future in future_to_abi:
           future.cancel()
         raise
+    total_elapsed = time.monotonic() - start_time
 
     # Printed after the live block so the messages land below it, not amid it.
     for msg in errors:
@@ -385,6 +445,8 @@ class Context:
                bcolors.ENDC))
       for line in tests:
         print('  ' + line)
+
+    print_timings(steps, timings, total_elapsed)
 
     return failures
 
