@@ -239,9 +239,9 @@ class Context:
     self.extra_config_opts.append("--enable-bind-now={}".format(opts.enable_bind_now))
     self.extra_config_opts.append("--enable-profile={}".format(opts.enable_profile))
     self.extra_config_opts.append("--enable-fortify-source={}".format(opts.enable_fortify))
-    if opts.enable_multiarch == False:
+    if not opts.enable_multiarch:
       self.extra_config_opts.append("--disable-multi-arch")
-    if opts.disable_werror == True:
+    if opts.disable_werror:
       self.extra_config_opts.append("--disable-werror")
     if opts.with_kernel:
       self.extra_config_opts.append("--enable-kernel={}".format(opts.with_kernel))
@@ -315,7 +315,7 @@ class Context:
     needed = set(self.CMD_MAP[action][1])
     steps = [act for act in ACTIONS if act in needed]
 
-    if self.keep is False:
+    if not self.keep:
       for abi in glibcs:
         remove_recreate_dirs(build_dir (abi))
 
