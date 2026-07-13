@@ -205,8 +205,7 @@ def run_cmd(abi, action, cmd):
   builddir = build_dir (abi)
   with create_outfile('logsdir', abi, action, '.out') as outfile, \
        create_outfile('logsdir', abi, action, '.err') as errfile:
-    proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
-    proc.wait()
+    proc = subprocess.run(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
   return proc.returncode
 
 # Actions that run the test suite and leave a summary in tests.sum.
