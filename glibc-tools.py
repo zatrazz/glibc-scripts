@@ -8,7 +8,6 @@ import subprocess
 import platform
 from itertools import chain
 import configparser
-from collections import OrderedDict
 import concurrent.futures
 import threading
 
@@ -265,38 +264,38 @@ class Context(object):
     self.configs = {}
     self.add_all_configs()
 
-  CMD_MAP = OrderedDict([
-    ("copylibs",
+  CMD_MAP = {
+    "copylibs":
       (lambda self, abi : self.glibc_configs[abi].copylibs(),
-       [])),
-    ("configure",
+       []),
+    "configure":
       (lambda self, abi : self.glibc_configs[abi].configure(self.extra_config_opts),
-       ["configure", "copylibs"])),
-    ("update-syscall-lists",
+       ["configure", "copylibs"]),
+    "update-syscall-lists":
       (lambda self, abi : self.glibc_configs[abi].update_syscall_lists(),
-       ["configure", "copylibs", "update-syscall-lists"])),
-    ("make",
+       ["configure", "copylibs", "update-syscall-lists"]),
+    "make":
       (lambda self, abi : self.glibc_configs[abi].build(),
-       ["configure", "copylibs", "make"])),
-    ("check",
+       ["configure", "copylibs", "make"]),
+    "check":
       (lambda self, abi : self.glibc_configs[abi].check(),
-       ["configure", "copylibs", "make", "check"])),
-    ("check-parallel",
+       ["configure", "copylibs", "make", "check"]),
+    "check-parallel":
       (lambda self, abi : self.glibc_configs[abi].check_parallel(),
-       ["configure", "copylibs", "make", "check-parallel"])),
-    ("check-abi",
+       ["configure", "copylibs", "make", "check-parallel"]),
+    "check-abi":
       (lambda self, abi : self.glibc_configs[abi].check_abi(),
-       ["configure", "make", "check-abi"])),
-    ("update-abi",
+       ["configure", "make", "check-abi"]),
+    "update-abi":
       (lambda self, abi : self.glibc_configs[abi].update_abi(),
-       ["configure", "make", "update-abi"])),
-    ("bench-build",
+       ["configure", "make", "update-abi"]),
+    "bench-build":
       (lambda self, abi : self.glibc_configs[abi].bench_build(),
-       ["configure", "copylibs", "make", "bench-build"])),
-    ("run-cmd",
+       ["configure", "copylibs", "make", "bench-build"]),
+    "run-cmd":
       (lambda self, abi : self.glibc_configs[abi].run_cmd(),
-       ["configure", "make", "run-cmd"])),
-  ])
+       ["configure", "make", "run-cmd"]),
+  }
 
   def run(self, opts, glibcs):
     if not glibcs:
