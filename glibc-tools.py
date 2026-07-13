@@ -79,7 +79,7 @@ def build_triplet():
     platstr = PLATFORM_MAP[platstr]
   return platstr + "-linux-gnu"
 
-class Config(object):
+class Config:
   """A configuration for building a compiler and associated libraries."""
 
   def __init__(self, ctx, arch, os_name, variant=None, glibcs=None,
@@ -115,7 +115,7 @@ class bcolors:
   BOLD = '\033[1m'
   UNDERLINE = '\033[4m'
 
-class Reporter(object):
+class Reporter:
   """Live one-line-per-ABI progress display.
 
   Every ABI owns a fixed line, listed in alphabetical order and updated in
@@ -223,7 +223,7 @@ def failing_tests(abi):
     return []
 
 
-class Context(object):
+class Context:
   def __init__ (self, opts):
     self.parallelize = opts.parallelize[0]
     self.build_jobs = opts.parallelize[1]
@@ -716,7 +716,7 @@ class Context(object):
       print(abi)
 
 
-class Glibc(object):
+class Glibc:
   """A configuration for building glibc."""
 
   def __init__(self, compiler, arch=None, os_name=None, variant=None,
