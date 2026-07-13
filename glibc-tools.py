@@ -8,7 +8,6 @@ import subprocess
 import platform
 from itertools import chain
 import configparser
-from py3compat import *
 from collections import OrderedDict
 import concurrent.futures
 import threading
@@ -37,7 +36,7 @@ ACTIONS = (
 
 def read_config(gccversion, srcdir, suffix):
   config = configparser.RawConfigParser()
-  cfgpath = str(Path.home()) + "/.glibc-tools.ini"
+  cfgpath = os.path.expanduser("~/.glibc-tools.ini")
   config.read(cfgpath)
   if 'glibc-tools' not in config.sections() \
      or 'srcdir' not in config['glibc-tools'] \

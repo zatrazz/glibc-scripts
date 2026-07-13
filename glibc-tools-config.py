@@ -1,9 +1,9 @@
 #! /usr/bin/env python3
 
 import sys
+import os
 import argparse
 import configparser
-from py3compat import *
 
 """
 glibc-tools configuration script, sets user config file for
@@ -37,7 +37,7 @@ def main(argv):
   cfg.set('glibc-tools', 'logsdir', opts.logsdir)
   cfg.set('glibc-tools', 'compilers', opts.compilers)
 
-  cfgpath = str(Path.home()) + "/.glibc-tools.ini"
+  cfgpath = os.path.expanduser("~/.glibc-tools.ini")
   with open(cfgpath, 'w') as cfgfile:
     cfg.write(cfgfile)
 
