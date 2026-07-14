@@ -50,7 +50,8 @@ def read_config(srcdir, suffix):
   global PATHS, SUFFIX
   PATHS = dict(config['glibc-tools'])
   if srcdir:
-    PATHS['srcdir'] = os.path.join (os.path.dirname(PATHS['srcdir']), srcdir)
+    PATHS['srcdir'] = os.path.join (
+      os.path.dirname(os.path.normpath(PATHS['srcdir'])), srcdir)
   if suffix:
     SUFFIX = '-' + suffix
 
@@ -448,6 +449,20 @@ class Context:
     def abiname(abi):
       return '{}{}'.format(abi,
                            '-{}'.format(opts.suffix) if opts.suffix else '')
+
+    # Every build action configures from the glibc source tree, so its
+    # configure script is a global prerequisite (the tree is the same for all
+    # ABIs).  Check it once, before any build directory is touched, so a bad
+    # -s or a stale configured path gives a clear message rather than a cryptic
+    # "No such file or directory" once configure runs -- and does not wipe a
+    # build directory on the way there.
+    if action != "list":
+      configure = os.path.join(PATHS["srcdir"], "configure")
+      if not os.path.isfile(configure):
+        print("error: no glibc source tree at %s: %s not found "
+              "(set it with -s or glibc-tools-config.py)"
+              % (PATHS["srcdir"], configure))
+        return 1
 
     # Resolve requested ABI names (which may carry a -gcc<version> tag) into
     # per-run Glibc instances, reporting unknown ABIs and missing toolchains
@@ -1342,9 +1357,12 @@ def get_parser():
   parser.add_argument('--timeoutfactor', dest='timeoutfactor',
                       help='Set the TIMEOUTFACTOR for make check', default='')
   parser.add_argument('-s', dest='srcdir', default='',
-                      help='glibc source tree to use')
+                      help='glibc source tree to use; a plain name is resolved '
+                           'beside the configured source tree (default: the '
+                           'configured one)')
   parser.add_argument('-u', dest='suffix', default='',
-                      help='suffix build to use')
+                      help='suffix appended to the build directory and log file '
+                           'names, to keep separate builds apart')
   parser.add_argument('--enable-stack-protector', dest='enable_stackprot',
                       help='Enable stack protection (default: %(default)s)',
                       choices=('no', 'yes', 'all', 'strong'), default='all')
