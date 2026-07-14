@@ -1305,8 +1305,20 @@ SPECIAL_LISTS = {
   ],
 }
 
+# Cap the --help width so the text does not stretch across the full width of a
+# wide terminal, matching the fixed-width help of coreutils tools (ls --help);
+# narrower terminals are still honoured.
+HELP_WIDTH = 80
+
+class CappedHelpFormatter(argparse.HelpFormatter):
+  def __init__(self, *args, **kwargs):
+    kwargs.setdefault('width',
+                      min(shutil.get_terminal_size().columns - 2, HELP_WIDTH))
+    super().__init__(*args, **kwargs)
+
 def get_parser():
-  parser = argparse.ArgumentParser(description=__doc__)
+  parser = argparse.ArgumentParser(description=__doc__,
+                                   formatter_class=CappedHelpFormatter)
   parser.add_argument('-p', dest='parallelize',
                       help='Run a number of parallel builds with make -j, as '
                            'PARALLEL[:JOBS] (JOBS defaults to 1). Use "auto" to '
@@ -1375,8 +1387,8 @@ def get_parser():
   parser.add_argument('--test_cxx', dest='test_cxx',
                       help='Whether to use a different CXX than default use to build test',
                       default='')
-  parser.add_argument('action',
-                      help='What to do',
+  parser.add_argument('action', metavar='action',
+                      help='What to do; one of: ' + ', '.join(ACTIONS),
                       choices=ACTIONS)
   parser.add_argument('configs',
                       help='Configurations to build (ex. x86_64-linux-gnu); '
