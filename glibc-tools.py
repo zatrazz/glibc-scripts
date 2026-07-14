@@ -1311,7 +1311,7 @@ def get_parser():
                       help='Run a number of parallel builds with make -j, as '
                            'PARALLEL[:JOBS] (JOBS defaults to 1). Use "auto" to '
                            'autotune both values from the number of ABIs to '
-                           'build and the available CPUs',
+                           'build and the available CPUs (default: %(default)s)',
                       type=parallelize_type, default="1:%s" % os.cpu_count())
   parser.add_argument('--overcommit', dest='overcommit',
                       help='Percentage of CPU overcommit used by "-p auto" '
@@ -1334,7 +1334,7 @@ def get_parser():
   parser.add_argument('-u', dest='suffix', default='',
                       help='suffix build to use')
   parser.add_argument('--enable-stack-protector', dest='enable_stackprot',
-                      help='Enable stack protection',
+                      help='Enable stack protection (default: %(default)s)',
                       choices=('no', 'yes', 'all', 'strong'), default='all')
   parser.add_argument('--disable-default-pie', dest='disable_pie',
                       help='Disable PIE (default is yes)',
