@@ -445,16 +445,37 @@ class Context:
 
     action = opts.action
 
+    def abiname(abi):
+      return '{}{}'.format(abi,
+                           '-{}'.format(opts.suffix) if opts.suffix else '')
+
     # Resolve requested ABI names (which may carry a -gcc<version> tag) into
     # per-run Glibc instances, reporting unknown ABIs and missing toolchains
     # up front instead of letting them surface as opaque build failures.  The
     # list action only needs the names, so it skips the toolchain check.
     resolved, config_errors = self.resolve_configs(glibcs, opts.gccversion,
                                                     action != "list")
-    for msg in config_errors:
-      print(msg)
     self.resolved = resolved
     glibcs = list(resolved.keys())
+
+    # -k reuses each build directory in place instead of wiping and recreating
+    # it, so a missing directory means there is nothing to keep.  Report it
+    # clearly here rather than letting the build command fail later with a bare
+    # "No such file or directory" when it cannot chdir into the directory (and,
+    # for actions that make, silently starting a full build from scratch).
+    if self.keep and action != "list":
+      present = []
+      for abi in glibcs:
+        if os.path.isdir(build_dir(abi)):
+          present.append(abi)
+        else:
+          config_errors.append(
+            "error: %s: no build directory to keep, run without -k first: %s"
+            % (abiname(abi), os.path.normpath(build_dir(abi))))
+      glibcs = present
+
+    for msg in config_errors:
+      print(msg)
 
     if action == "list":
       self.list_configs(glibcs)
@@ -462,12 +483,6 @@ class Context:
 
     if not glibcs:
       return len(config_errors) or 1
-
-    # The canonical name already carries the -gcc<version> tag, so abiname
-    # only adds the optional build suffix for the display/timing labels.
-    def abiname(abi):
-      return '{}{}'.format(abi,
-                           '-{}'.format(opts.suffix) if opts.suffix else '')
 
     # The steps required to reach the requested action, in canonical order.
     needed = set(self.CMD_MAP[action][1])
