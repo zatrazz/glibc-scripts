@@ -2,13 +2,14 @@
 
 import sys
 import os
+import re
+import copy
 import shutil
 import argparse
 import subprocess
 import math
 import time
 import platform
-from itertools import chain
 import configparser
 import concurrent.futures
 import threading
@@ -35,7 +36,7 @@ ACTIONS = (
   'run-cmd',
   'list')
 
-def read_config(gccversion, srcdir, suffix):
+def read_config(srcdir, suffix):
   config = configparser.RawConfigParser()
   cfgpath = os.path.expanduser("~/.glibc-tools.ini")
   config.read(cfgpath)
@@ -48,12 +49,46 @@ def read_config(gccversion, srcdir, suffix):
     sys.exit(1)
   global PATHS, SUFFIX
   PATHS = dict(config['glibc-tools'])
-  PATHS['gccversion'] = "{0}{1}".format("-gcc" if gccversion else "", gccversion)
-  PATHS['compilers'] = PATHS['compilers'] + gccversion
   if srcdir:
     PATHS['srcdir'] = os.path.join (os.path.dirname(PATHS['srcdir']), srcdir)
   if suffix:
     SUFFIX = '-' + suffix
+
+# A trailing -gcc<version> on an ABI name selects a specific gcc version for
+# that ABI (with the same meaning as the global --gccversion option): the
+# compiler is looked up under "<compilers>/<version>/..." and the build
+# directory and display name carry a "-gcc<version>" tag.  ABI names never
+# contain "-gcc" otherwise, so splitting on the last occurrence is safe.
+GCCVERSION_RE = re.compile(r'^(?P<base>.+)-gcc(?P<version>.+)$')
+
+def split_gccversion(name, default):
+  m = GCCVERSION_RE.match(name)
+  if m:
+    return m.group('base'), m.group('version')
+  return name, default
+
+def gccversion_tag(gccversion):
+  return '-gcc' + gccversion if gccversion else ''
+
+def canonical_name(base_name, gccversion):
+  return base_name + gccversion_tag(gccversion)
+
+def expand_configs(tokens):
+  """Expand the requested config tokens, resolving SPECIAL_LISTS names.
+
+  A -gcc<version> tag on a special-list name (e.g. "sparc-gcc12") is applied
+  to every member of the list, so "sparc-gcc12" builds the whole sparc list
+  with gcc 12.  Individual ABI names are passed through unchanged (their tag,
+  if any, is handled later during resolution)."""
+  result = []
+  for token in tokens:
+    base, gccversion = split_gccversion(token, '')
+    members = SPECIAL_LISTS.get(base)
+    if members is None:
+      result.append(token)
+    else:
+      result.extend(canonical_name(m, gccversion) for m in members)
+  return result
 
 def remove_dirs(*args):
   """Remove directories and their contents if they exist."""
@@ -71,7 +106,8 @@ def create_file(filename):
   return open(filename, "w")
 
 def build_dir(abi):
-  return PATHS['builddir'] + '/' + abi + PATHS['gccversion'] + SUFFIX
+  # abi is the canonical name, so it already carries any -gcc<version> tag.
+  return PATHS['builddir'] + '/' + abi + SUFFIX
 
 PLATFORM_MAP = { "ppc64le" : "powerpc64le" }
 
@@ -311,54 +347,101 @@ class Context:
     self.status_log_list = []
     self.glibc_configs = {}
     self.configs = {}
+    # Per-run map (canonical name -> Glibc), filled in by run/resolve_configs.
+    self.resolved = {}
     self.add_all_configs()
 
+  # Keyed by canonical ABI name; self.resolved is the per-run map from that
+  # name to its Glibc instance (which knows its selected gcc version).
   CMD_MAP = {
     "copylibs":
-      (lambda self, abi : self.glibc_configs[abi].copylibs(),
+      (lambda self, abi : self.resolved[abi].copylibs(),
        []),
     "configure":
-      (lambda self, abi : self.glibc_configs[abi].configure(self.extra_config_opts),
+      (lambda self, abi : self.resolved[abi].configure(self.extra_config_opts),
        ["configure", "copylibs"]),
     "update-syscall-lists":
-      (lambda self, abi : self.glibc_configs[abi].update_syscall_lists(),
+      (lambda self, abi : self.resolved[abi].update_syscall_lists(),
        ["configure", "copylibs", "update-syscall-lists"]),
     "make":
-      (lambda self, abi : self.glibc_configs[abi].build(),
+      (lambda self, abi : self.resolved[abi].build(),
        ["configure", "copylibs", "make"]),
     "check":
-      (lambda self, abi : self.glibc_configs[abi].check(),
+      (lambda self, abi : self.resolved[abi].check(),
        ["configure", "copylibs", "make", "check"]),
     "check-parallel":
-      (lambda self, abi : self.glibc_configs[abi].check_parallel(),
+      (lambda self, abi : self.resolved[abi].check_parallel(),
        ["configure", "copylibs", "make", "check-parallel"]),
     "check-abi":
-      (lambda self, abi : self.glibc_configs[abi].check_abi(),
+      (lambda self, abi : self.resolved[abi].check_abi(),
        ["configure", "make", "check-abi"]),
     "update-abi":
-      (lambda self, abi : self.glibc_configs[abi].update_abi(),
+      (lambda self, abi : self.resolved[abi].update_abi(),
        ["configure", "make", "update-abi"]),
     "bench-build":
-      (lambda self, abi : self.glibc_configs[abi].bench_build(),
+      (lambda self, abi : self.resolved[abi].bench_build(),
        ["configure", "copylibs", "make", "bench-build"]),
     "run-cmd":
-      (lambda self, abi : self.glibc_configs[abi].run_cmd(),
+      (lambda self, abi : self.resolved[abi].run_cmd(),
        ["configure", "make", "run-cmd"]),
   }
+
+  def resolve_configs(self, requests, default_gccversion, check_compiler):
+    """Each request may carry a trailing -gcc<version> selecting a gcc version
+    for that ABI (overriding default_gccversion, which comes from the global
+    --gccversion).  Returns (resolved, errors) where resolved maps each
+    canonical name to its Glibc instance (a clone of the base config with its
+    gccversion set) and errors is a list of human-readable messages for
+    unknown ABIs and, when check_compiler is set, missing toolchains.  The
+    order of requests is preserved and duplicates collapse."""
+    resolved = {}
+    errors = []
+    for request in requests:
+      base_name, gccversion = split_gccversion(request, default_gccversion)
+      base = self.glibc_configs.get(base_name)
+      if base is None:
+        errors.append("error: unknown configuration '%s'" % request)
+        continue
+      glibc = copy.copy(base)
+      glibc.gccversion = gccversion
+      glibc.name = canonical_name(base_name, gccversion)
+      if check_compiler and not os.path.exists(glibc.gcc_path()):
+        errors.append("error: %s: gcc%s not found: %s"
+                      % (glibc.name, gccversion or ' (default)',
+                         os.path.normpath(glibc.gcc_path())))
+        continue
+      resolved[glibc.name] = glibc
+    return resolved, errors
 
   def run(self, opts, glibcs):
     if not glibcs:
       glibcs = sorted(self.glibc_configs.keys())
 
     action = opts.action
+
+    # Resolve requested ABI names (which may carry a -gcc<version> tag) into
+    # per-run Glibc instances, reporting unknown ABIs and missing toolchains
+    # up front instead of letting them surface as opaque build failures.  The
+    # list action only needs the names, so it skips the toolchain check.
+    resolved, config_errors = self.resolve_configs(glibcs, opts.gccversion,
+                                                    action != "list")
+    for msg in config_errors:
+      print(msg)
+    self.resolved = resolved
+    glibcs = list(resolved.keys())
+
     if action == "list":
       self.list_configs(glibcs)
-      return 0
+      return len(config_errors)
 
+    if not glibcs:
+      return len(config_errors) or 1
+
+    # The canonical name already carries the -gcc<version> tag, so abiname
+    # only adds the optional build suffix for the display/timing labels.
     def abiname(abi):
-      return '{}{}{}'.format(abi,
-                             '-gcc{}'.format(opts.gccversion) if opts.gccversion else '',
-                             '-{}'.format(opts.suffix) if opts.suffix else '')
+      return '{}{}'.format(abi,
+                           '-{}'.format(opts.suffix) if opts.suffix else '')
 
     # The steps required to reach the requested action, in canonical order.
     needed = set(self.CMD_MAP[action][1])
@@ -448,7 +531,9 @@ class Context:
 
     print_timings(steps, timings, total_elapsed)
 
-    return failures
+    # Configs that could not be resolved (unknown ABI or missing toolchain)
+    # were never built but must still make the invocation fail.
+    return failures + len(config_errors)
 
 
   def add_config(self, **args):
@@ -802,11 +887,20 @@ class Glibc:
     else:
       self.cfg = cfg
     self.ccopts = ccopts
+    # gcc version selected for this build ('' for the default toolchain); set
+    # per requested ABI by Context.resolve_configs.
+    self.gccversion = ''
+
+  def compiler_bindir(self):
+    return '%s%s/%s/bin' % (PATHS["compilers"], self.gccversion,
+                            self.compiler.name)
+
+  def gcc_path(self):
+    return '%s/%s-gcc' % (self.compiler_bindir(), self.compiler.triplet)
 
   def tool_name(self, tool):
     """Return the name of a cross-compilation tool."""
-    ctool = PATHS["compilers"] + '/' + self.compiler.name + '/bin/'
-    ctool += self.compiler.triplet + '-' + tool
+    ctool = '%s/%s-%s' % (self.compiler_bindir(), self.compiler.triplet, tool)
     if self.ccopts and (tool == 'gcc' or tool == 'g++'):
       ctool = '%s %s' % (ctool, self.ccopts)
     return ctool
@@ -1219,7 +1313,10 @@ def get_parser():
   parser.add_argument('--enable-kernel', dest='with_kernel',
                       help='Build with --enable-kernel')
   parser.add_argument('--gccversion', dest='gccversion',
-                      help='Use a different gcc version', default='')
+                      help='Use a different gcc version for all ABIs (a per-ABI '
+                           'version can also be given by appending -gcc<version> '
+                           'to the ABI name',
+                      default='')
   parser.add_argument('--enable-sframe', dest='enable_sframe',
                       help='Build with --enable-sframe',
                       action='store_true', default=False)
@@ -1235,7 +1332,8 @@ def get_parser():
                       help='What to do',
                       choices=ACTIONS)
   parser.add_argument('configs',
-                      help='Configurations to build (ex. x86_64-linux-gnu)',
+                      help='Configurations to build (ex. x86_64-linux-gnu); '
+                           'append -gcc<version> to pick a gcc version for that ABI',
                       nargs='*')
   return parser
 
@@ -1244,9 +1342,9 @@ def main(argv):
   parser = get_parser()
   opts = parser.parse_args(argv)
 
-  read_config (opts.gccversion, opts.srcdir, opts.suffix)
+  read_config (opts.srcdir, opts.suffix)
 
-  configs = list(chain.from_iterable(SPECIAL_LISTS.get(c, [c]) for c in opts.configs))
+  configs = expand_configs(opts.configs)
 
   if opts.parallelize == ['auto']:
     opts.parallelize = auto_parallelize(len(configs), opts.overcommit,
