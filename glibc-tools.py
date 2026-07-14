@@ -1346,7 +1346,7 @@ def get_parser():
                       help='Enable profile (default is no)',
                       choices=('yes', 'no'), default='no')
   parser.add_argument('--enable-fortify-source', dest='enable_fortify',
-                      help='Use -D_FORTIFY_SOURCE',
+                      help='Use -D_FORTIFY_SOURCE (default: %(default)s)',
                       choices=('1', '2', '3', 'yes', 'no'), default='2')
   parser.add_argument('--disable-multi-arch', dest='enable_multiarch',
                       help='Disable iFUNC sysdep selection',
