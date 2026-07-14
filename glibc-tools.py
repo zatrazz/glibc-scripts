@@ -313,6 +313,16 @@ class Context:
     self.parallelize = opts.parallelize[0]
     self.build_jobs = opts.parallelize[1]
 
+    # Total make-job budget for the whole invocation.  current_jobs() hands
+    # each build an even share of it based on how many builds are running, so
+    # the make -j of a build grows into the cores freed as other builds
+    # finish instead of staying pinned at build_jobs; with the pool full the
+    # share is exactly build_jobs and the last build left running gets the
+    # whole budget.
+    self.budget = self.parallelize * self.build_jobs
+    self.active = 0
+    self.active_lock = threading.Lock()
+
     self.run_built_tests = 'yes' if opts.run_built_tests else 'no'
 
     self.timeoutfactor = opts.timeoutfactor
@@ -350,6 +360,22 @@ class Context:
     # Per-run map (canonical name -> Glibc), filled in by run/resolve_configs.
     self.resolved = {}
     self.add_all_configs()
+
+  def build_started(self):
+    with self.active_lock:
+      self.active += 1
+
+  def build_finished(self):
+    with self.active_lock:
+      self.active -= 1
+
+  def current_jobs(self):
+    # The CPU budget is split evenly across the builds currently running, so
+    # the value is build_jobs while the pool is full and rises as builds
+    # finish, up to the whole budget for the last build left running.
+    with self.active_lock:
+      active = self.active
+    return max(1, math.ceil(self.budget / max(1, active)))
 
   # Keyed by canonical ABI name; self.resolved is the per-run map from that
   # name to its Glibc instance (which knows its selected gcc version).
@@ -470,29 +496,35 @@ class Context:
     # lets a build in its parallel make phase fill the cores left idle by
     # another build's serial configure phase, keeping the CPUs busy without
     # raising the peak number of concurrent jobs.  The reporter shows each
-    # ABI's progress live as the steps complete.
+    # ABI's progress live as the steps complete.  Each ABI counts as an active
+    # build for its whole lifetime so current_jobs() can spread the CPU budget
+    # over however many builds are still running.
     def run_abi(abi):
       abi_times = {}
       timings[abiname(abi)] = abi_times
-      for act in steps:
-        if abort.is_set():
-          return 1
-        reporter.running(abi, act)
-        cmd = self.CMD_MAP[act][0](self, abi)
-        start = time.monotonic()
-        resultcode = run_cmd(abi, act, cmd)
-        elapsed = time.monotonic() - start
-        abi_times[act] = elapsed
-        if abort.is_set():
-          return 1
-        reporter.finished(abi, act, resultcode == 0, elapsed)
-        if resultcode != 0:
-          if act in TEST_ACTIONS:
-            tests = failing_tests(abi)
-            if tests:
-              test_fails[abiname(abi)] = tests
-          return 1
-      return 0
+      self.build_started()
+      try:
+        for act in steps:
+          if abort.is_set():
+            return 1
+          reporter.running(abi, act)
+          cmd = self.CMD_MAP[act][0](self, abi)
+          start = time.monotonic()
+          resultcode = run_cmd(abi, act, cmd)
+          elapsed = time.monotonic() - start
+          abi_times[act] = elapsed
+          if abort.is_set():
+            return 1
+          reporter.finished(abi, act, resultcode == 0, elapsed)
+          if resultcode != 0:
+            if act in TEST_ACTIONS:
+              tests = failing_tests(abi)
+              if tests:
+                test_fails[abiname(abi)] = tests
+            return 1
+        return 0
+      finally:
+        self.build_finished()
 
     failures = 0
     errors = []
@@ -944,7 +976,7 @@ class Glibc:
 
   def build(self):
     return ['make',
-            '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.current_jobs())]
 
   def timeoutfactor_opt(self):
     if self.ctx.timeoutfactor:
@@ -955,28 +987,28 @@ class Glibc:
     return ['make',
             'check',
             'run-built-tests=%s' % (self.ctx.run_built_tests),
-            '-j%d' % (self.ctx.build_jobs)] + self.timeoutfactor_opt()
+            '-j%d' % (self.ctx.current_jobs())] + self.timeoutfactor_opt()
 
   def check_parallel(self):
     return ['make',
             'check-parallel',
             'run-built-tests=%s' % (self.ctx.run_built_tests),
-            '-j%d' % (self.ctx.build_jobs)] + self.timeoutfactor_opt()
+            '-j%d' % (self.ctx.current_jobs())] + self.timeoutfactor_opt()
 
   def check_abi(self):
     return ['make',
             'check-abi',
-            '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.current_jobs())]
 
   def update_abi(self):
     return ['make',
             'update-abi',
-            '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.current_jobs())]
 
   def bench_build(self):
     return ['make',
             'bench-build',
-            '-j%d' % (self.ctx.build_jobs)]
+            '-j%d' % (self.ctx.current_jobs())]
 
   def update_syscall_lists(self):
     return ['make',
@@ -984,7 +1016,7 @@ class Glibc:
 
   def run_cmd(self):
     return ['make',
-            '-j%d' % (self.ctx.build_jobs),
+            '-j%d' % (self.ctx.current_jobs()),
             'update-syscall-lists']
 
 
@@ -1349,8 +1381,12 @@ def main(argv):
   if opts.parallelize == ['auto']:
     opts.parallelize = auto_parallelize(len(configs), opts.overcommit,
                                         opts.jobs_per_build)
-    print("auto-parallelize: %d ABIs in parallel, make -j%d each"
-          % (opts.parallelize[0], opts.parallelize[1]))
+    parallelize, build_jobs = opts.parallelize
+    msg = "auto-parallelize: %d ABIs in parallel, make -j%d each" \
+          % (parallelize, build_jobs)
+    if parallelize > 1:
+      msg += " (up to -j%d as builds finish)" % (parallelize * build_jobs)
+    print(msg)
 
   ctx = Context(opts)
   failures = ctx.run(opts, configs)
