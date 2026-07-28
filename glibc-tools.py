@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+import fnmatch
 import copy
 import shutil
 import argparse
@@ -90,6 +91,19 @@ def expand_configs(tokens):
     else:
       result.extend(canonical_name(m, gccversion) for m in members)
   return result
+
+def match_configs(patterns, known):
+  known = sorted(known)
+  result = []
+  errors = []
+  for pattern in patterns:
+    base, gccversion = split_gccversion(pattern, '')
+    matches = fnmatch.filter(known, base)
+    if not matches:
+      errors.append("error: no configuration matches '%s'" % pattern)
+      continue
+    result.extend(canonical_name(m, gccversion) for m in matches)
+  return result, errors
 
 def remove_dirs(*args):
   """Remove directories and their contents if they exist."""
@@ -464,12 +478,20 @@ class Context:
               % (PATHS["srcdir"], configure))
         return 1
 
+    # The list action takes its arguments as globs rather than as exact ABI
+    # names, which is how a triple is searched for when only part of its
+    # spelling is known.
+    glob_errors = []
+    if action == "list":
+      glibcs, glob_errors = match_configs(glibcs, self.glibc_configs.keys())
+
     # Resolve requested ABI names (which may carry a -gcc<version> tag) into
     # per-run Glibc instances, reporting unknown ABIs and missing toolchains
     # up front instead of letting them surface as opaque build failures.  The
     # list action only needs the names, so it skips the toolchain check.
     resolved, config_errors = self.resolve_configs(glibcs, opts.gccversion,
                                                     action != "list")
+    config_errors = glob_errors + config_errors
     self.resolved = resolved
     glibcs = list(resolved.keys())
 
@@ -1410,7 +1432,9 @@ def get_parser():
                       choices=ACTIONS)
   parser.add_argument('configs',
                       help='Configurations to build (ex. x86_64-linux-gnu); '
-                           'append -gcc<version> to pick a gcc version for that ABI',
+                           'append -gcc<version> to pick a gcc version for that ABI. '
+                           'The list action takes them as globs instead (ex. '
+                           '"arm*"), and lists every configuration if none is given',
                       nargs='*')
   return parser
 
