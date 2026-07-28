@@ -1339,7 +1339,7 @@ def get_parser():
                            'PARALLEL[:JOBS] (JOBS defaults to 1). Use "auto" to '
                            'autotune both values from the number of ABIs to '
                            'build and the available CPUs (default: %(default)s)',
-                      type=parallelize_type, default="1:%s" % os.cpu_count())
+                      type=parallelize_type, default="auto")
   parser.add_argument('--overcommit', dest='overcommit',
                       help='Percentage of CPU overcommit used by "-p auto" '
                            '(default: {})'.format(DEFAULT_OVERCOMMIT),
@@ -1423,14 +1423,20 @@ def main(argv):
 
   configs = expand_configs(opts.configs)
 
-  if opts.parallelize == ['auto']:
+  autotuned = opts.parallelize == ['auto']
+  if autotuned:
     opts.parallelize = auto_parallelize(len(configs), opts.overcommit,
                                         opts.jobs_per_build)
+
+  if opts.action != "list":
     parallelize, build_jobs = opts.parallelize
-    msg = "auto-parallelize: %d ABIs in parallel, make -j%d each" \
-          % (parallelize, build_jobs)
+    prefix = "auto-parallelize" if autotuned else "parallelize"
     if parallelize > 1:
-      msg += " (up to -j%d as builds finish)" % (parallelize * build_jobs)
+      msg = "%s: %d ABIs in parallel, make -j%d each (up to -j%d as builds " \
+            "finish)" % (prefix, parallelize, build_jobs,
+                         parallelize * build_jobs)
+    else:
+      msg = "%s: 1 ABI at a time, make -j%d" % (prefix, build_jobs)
     print(msg)
 
   ctx = Context(opts)
