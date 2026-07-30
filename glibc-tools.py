@@ -12,6 +12,7 @@ import math
 import time
 import platform
 import configparser
+import collections
 import concurrent.futures
 import threading
 
@@ -179,20 +180,58 @@ def format_duration(seconds):
     return '%dm%02ds' % (m, s)
   return '%ds' % s
 
-def print_timings(steps, timings, total_elapsed):
-  """Print a per-step, per-ABI and total wall-clock timing summary.
+def format_size(nbytes):
+  """Format a byte count as a compact human-readable string."""
+  for unit in ('B', 'KiB', 'MiB'):
+    if nbytes < 1024:
+      return '%d%s' % (nbytes, unit)
+    nbytes /= 1024.0
+  return '%.1fGiB' % nbytes
 
-  timings maps each ABI display name to a {step: elapsed_seconds} dict; the
-  per-ABI total is the sum of its steps (steps run serially within an ABI)
-  while total_elapsed is the wall-clock time of the whole invocation (ABIs
-  run concurrently, so it is typically far less than the sum of the rows).
+def format_percent(cpu, wall):
+  """Format CPU seconds as a percentage of a wall-clock duration.
+
+  100% is one core kept busy for the whole duration, so a parallel make shows
+  roughly 100% times the number of cores it managed to keep working.
+  """
+  if wall <= 0:
+    return '-'
+  return '%d%%' % round(100.0 * cpu / wall)
+
+def print_summary(steps, usages, total_elapsed, peak_rss, resources):
+  """Print a per-step, per-ABI and total time and resource usage summary.
+
+  usages maps each ABI display name to a {step: Usage} dict.  A row's step
+  columns and its total are wall-clock times, the total being the sum of the
+  steps since the steps of an ABI run serially; total_elapsed is instead the
+  wall-clock time of the whole invocation, and as ABIs run concurrently it is
+  typically far less than the sum of the rows.
+
+  Without resources (-r) that is all that is printed.  With it each row also
+  gets a cpu column, the CPU time the ABI's build commands used, and a %cpu
+  one, that against the ABI's own wall-clock total, which is the average
+  number of cores the build kept busy; the maxrss column is the largest
+  single process seen in the build (see run_cmd), while peak_rss is the peak
+  memory of the whole invocation with all its concurrent builds together.
   """
   cols = list(steps) + ['total']
+  if resources:
+    cols += ['|', 'cpu', '%cpu', 'maxrss']
   rows = []
-  for name in sorted(timings):
-    times = timings[name]
-    cells = [format_duration(times[s]) if s in times else '-' for s in steps]
-    cells.append(format_duration(sum(times.values())))
+  total_cpu = 0.0
+  for name in sorted(usages):
+    used = usages[name]
+    # An ABI aborted before it ran a single step has nothing to report.
+    if not used:
+      continue
+    wall = sum(u.wall for u in used.values())
+    cells = [format_duration(used[s].wall) if s in used else '-' for s in steps]
+    cells.append(format_duration(wall))
+    if resources:
+      cpu = sum(u.cpu for u in used.values())
+      total_cpu += cpu
+      cells.extend(['|', format_duration(cpu), format_percent(cpu, wall),
+                    format_size(max(u.rss for u in used.values()))])
     rows.append((name, cells))
   if not rows:
     return
@@ -204,14 +243,23 @@ def print_timings(steps, timings, total_elapsed):
     return name_field + '  ' + '  '.join('%*s' % (colw[i], cells[i])
                                          for i in range(len(cols)))
 
-  print(bcolors.BOLD + 'Timings:' + bcolors.ENDC)
+  print(bcolors.BOLD + ('Summary:' if resources else 'Timings:') + bcolors.ENDC)
   print(fmt_row(' ' * namew, cols))
   for name, cells in rows:
     name_field = bcolors.BOLD + bcolors.OKCYAN + ('%-*s' % (namew, name)) \
                  + bcolors.ENDC
     print(fmt_row(name_field, cells))
-  print('%stotal:%s %s' % (bcolors.BOLD, bcolors.ENDC,
-                           format_duration(total_elapsed)))
+
+  totals = ['%stotal:%s %s' % (bcolors.BOLD, bcolors.ENDC,
+                               format_duration(total_elapsed))]
+  if total_cpu:
+    totals.append('cpu %s' % format_duration(total_cpu))
+    totals.append('%s of %d cores'
+                  % (format_percent(total_cpu, total_elapsed),
+                     available_cpus()))
+  if peak_rss:
+    totals.append('peak rss %s' % format_size(peak_rss))
+  print('  '.join(totals))
 
 class Reporter:
   """Live one-line-per-ABI progress display.
@@ -219,13 +267,14 @@ class Reporter:
   Every ABI owns a fixed line, listed in alphabetical order and updated in
   place as the ABI advances through its build steps:
 
-    <abi>:            | <current action> | <PASS|FAIL> | <time>
+    <abi>:            | <current action> | <PASS|FAIL> | <time> [<%cpu> <maxrss>]
 
   The ABI name is shown in bold cyan and the action in yellow; the action
   column tracks the step being run, the status column is empty while the
   step is in progress and shows the step's result once it finishes (in blue
   for a success and red for a failure), and the time column shows how long
-  the finished step took.
+  the finished step took, followed by the CPU and the memory it used when
+  resources (-r) is set.
 
   When the output is not a terminal (or has more ABIs than fit on it), the
   in-place redraw is dropped and the line is printed whenever a step
@@ -242,10 +291,12 @@ class Reporter:
     'fail': ('FAIL', bcolors.FAIL),
   }
 
-  def __init__(self, entries, steps):
-    # entries: list of (abi, display name); steps: ordered step names.
+  def __init__(self, entries, steps, resources):
+    # entries: list of (abi, display name); steps: ordered step names;
+    # resources: whether to report the CPU and memory of each step.
     self.order = sorted((name for _, name in entries))
     self.abi_name = dict(entries)
+    self.resources = resources
     self.namew = max((len(n) for n in self.order), default=0) + 1
     self.actw = max((len(s) for s in steps), default=0)
     self.state = {name: ('', 'run', None) for name in self.order}
@@ -262,13 +313,20 @@ class Reporter:
     return color + text + bcolors.ENDC if color else text
 
   def _line(self, name):
-    action, status, elapsed = self.state[name]
+    action, status, usage = self.state[name]
     label, scolor = self._STATUS[status]
     abi = self._paint('%-*s' % (self.namew, name + ':'), self._ABI_COLOR)
     act = self._paint('%-*s' % (self.actw, action), self._ACT_COLOR)
     stat = self._paint('%-4s' % label, scolor)
-    tstr = format_duration(elapsed) if elapsed is not None else ''
-    return '%s | %s | %s | %s' % (abi, act, stat, tstr)
+    if usage is None:
+      ustr = ''
+    elif self.resources:
+      ustr = '%8s %5s %s' % (format_duration(usage.wall),
+                             format_percent(usage.cpu, usage.wall),
+                             format_size(usage.rss))
+    else:
+      ustr = format_duration(usage.wall)
+    return '%s | %s | %s | %s' % (abi, act, stat, ustr)
 
   def _redraw(self):
     # Move to the top of the block and rewrite every line in place.
@@ -284,10 +342,10 @@ class Reporter:
       if self.live:
         self._redraw()
 
-  def finished(self, abi, step, ok, elapsed=None):
+  def finished(self, abi, step, ok, usage=None):
     name = self.abi_name[abi]
     with self.lock:
-      self.state[name] = (step, 'pass' if ok else 'fail', elapsed)
+      self.state[name] = (step, 'pass' if ok else 'fail', usage)
       if self.live:
         self._redraw()
       else:
@@ -302,12 +360,102 @@ def create_outfile(strtype, abi, action, suffix):
   filename += SUFFIX
   return create_file(filename + '_' + action + suffix)
 
+# What one build step cost: its wall-clock time and CPU time in seconds and
+# its peak memory in bytes (see run_cmd for exactly which peak).
+Usage = collections.namedtuple('Usage', 'wall cpu rss')
+
 def run_cmd(abi, action, cmd):
+  """Run one build step, returning its exit status and its resource usage.
+
+  The usage covers the command and every process it spawned, so the make
+  steps account for their compilers too.  Its rss is the kernel's ru_maxrss
+  (which Linux reports in kilobytes), the high-water mark of the largest
+  single process in the step rather than the sum of whatever ran concurrently:
+  it says how big the fattest compiler grew, not how much memory the build
+  held at once (MemorySampler measures that, for the invocation as a whole).
+  """
   builddir = build_dir (abi)
   with create_outfile('logsdir', abi, action, '.out') as outfile, \
        create_outfile('logsdir', abi, action, '.err') as errfile:
-    proc = subprocess.run(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
-  return proc.returncode
+    start = time.monotonic()
+    proc = subprocess.Popen(cmd, cwd=builddir, stdout=outfile, stderr=errfile)
+    # Reap the child here rather than through Popen.wait so that the kernel
+    # hands back its resource usage; storing the status in the Popen keeps it
+    # from later waiting for a child that no longer exists.
+    _, status, ru = os.wait4(proc.pid, 0)
+    wall = time.monotonic() - start
+    proc.returncode = -os.WTERMSIG(status) if os.WIFSIGNALED(status) \
+                      else os.WEXITSTATUS(status)
+  return proc.returncode, Usage(wall, ru.ru_utime + ru.ru_stime,
+                                ru.ru_maxrss * 1024)
+
+try:
+  PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
+except (AttributeError, ValueError, OSError):
+  PAGE_SIZE = 4096
+
+def tree_rss(root):
+  """Sum the resident memory of a process and all of its descendants.
+
+  Returns the total in bytes, or 0 if /proc is not available.
+  """
+  children = {}
+  rss = {}
+  try:
+    entries = os.listdir('/proc')
+  except OSError:
+    return 0
+  for entry in entries:
+    if not entry.isdigit():
+      continue
+    try:
+      with open('/proc/' + entry + '/stat', 'rb') as f:
+        # Skip past the comm field: it is parenthesised and may itself contain
+        # spaces, while every field after it has a fixed position.
+        fields = f.read().rpartition(b')')[2].split()
+      pid = int(entry)
+      children.setdefault(int(fields[1]), []).append(pid)
+      rss[pid] = int(fields[21]) * PAGE_SIZE
+    except (OSError, IndexError, ValueError):
+      # The process exited while being read, so it holds no memory anymore.
+      continue
+  total = 0
+  pending = [root]
+  while pending:
+    pid = pending.pop()
+    total += rss.get(pid, 0)
+    pending.extend(children.get(pid, ()))
+  return total
+
+class MemorySampler(threading.Thread):
+  """Background sampler for the peak memory of the whole invocation.
+
+  The per-step ru_maxrss cannot be added up across steps or ABIs to tell how
+  much memory a run really needed, both because it is a per-process peak and
+  because concurrent builds reach their peaks at unrelated times.  This
+  thread measures that directly instead, by periodically summing the resident
+  memory of every descendant of this script; the result is the number that
+  says whether a given -p spread fits in the machine.  A peak shorter than
+  the sampling interval can be missed.
+  """
+
+  INTERVAL = 1.0
+
+  def __init__(self):
+    # A daemon thread so that a sampler still running cannot hold up an exit.
+    threading.Thread.__init__(self, daemon=True)
+    self.peak = 0
+    self.done = threading.Event()
+
+  def run(self):
+    while not self.done.wait(self.INTERVAL):
+      self.peak = max(self.peak, tree_rss(os.getpid()))
+
+  def stop(self):
+    """Stop sampling and return the peak seen, in bytes."""
+    self.done.set()
+    self.join()
+    return self.peak
 
 # Actions that run the test suite and leave a summary in tests.sum.
 TEST_ACTIONS = ('check', 'check-parallel')
@@ -529,7 +677,8 @@ class Context:
       for abi in glibcs:
         remove_recreate_dirs(build_dir (abi))
 
-    reporter = Reporter([(abi, abiname(abi)) for abi in glibcs], steps)
+    reporter = Reporter([(abi, abiname(abi)) for abi in glibcs], steps,
+                        opts.resources)
 
     # Set on Ctrl-C so in-flight builds stop after their current step instead
     # of marching through the remaining ones.
@@ -538,9 +687,9 @@ class Context:
     # Collects the failing tests of any ABI whose check step fails.
     test_fails = {}
 
-    # Per-ABI {step: elapsed_seconds}, filled in as each step finishes.  Each
-    # run_abi thread only touches its own entry, so no locking is needed.
-    timings = {}
+    # Per-ABI {step: Usage}, filled in as each step finishes.  Each run_abi
+    # thread only touches its own entry, so no locking is needed.
+    usages = {}
 
     # Run the whole step chain for a single ABI, stopping at the first failure
     # so a broken configure does not spawn a doomed make.  Pipelining per ABI
@@ -552,8 +701,8 @@ class Context:
     # build for its whole lifetime so current_jobs() can spread the CPU budget
     # over however many builds are still running.
     def run_abi(abi):
-      abi_times = {}
-      timings[abiname(abi)] = abi_times
+      abi_usage = {}
+      usages[abiname(abi)] = abi_usage
       self.build_started()
       try:
         for act in steps:
@@ -561,13 +710,11 @@ class Context:
             return 1
           reporter.running(abi, act)
           cmd = self.CMD_MAP[act][0](self, abi)
-          start = time.monotonic()
-          resultcode = run_cmd(abi, act, cmd)
-          elapsed = time.monotonic() - start
-          abi_times[act] = elapsed
+          resultcode, usage = run_cmd(abi, act, cmd)
+          abi_usage[act] = usage
           if abort.is_set():
             return 1
-          reporter.finished(abi, act, resultcode == 0, elapsed)
+          reporter.finished(abi, act, resultcode == 0, usage)
           if resultcode != 0:
             if act in TEST_ACTIONS:
               tests = failing_tests(abi)
@@ -581,6 +728,11 @@ class Context:
     failures = 0
     errors = []
     start_time = time.monotonic()
+    # Walking /proc only pays for itself when the peak is going to be reported;
+    # the per-step usage comes from the kernel for free either way.
+    sampler = MemorySampler() if opts.resources else None
+    if sampler:
+      sampler.start()
     with concurrent.futures.ThreadPoolExecutor(max_workers=self.parallelize) \
          as executor:
       future_to_abi = {executor.submit(run_abi, abi) : abi for abi in glibcs}
@@ -597,10 +749,13 @@ class Context:
         # Drop the queued builds and stop the running ones; the executor's
         # shutdown then only waits for the already-signalled builds to exit.
         abort.set()
+        if sampler:
+          sampler.done.set()
         for future in future_to_abi:
           future.cancel()
         raise
     total_elapsed = time.monotonic() - start_time
+    peak_rss = sampler.stop() if sampler else 0
 
     # Printed after the live block so the messages land below it, not amid it.
     for msg in errors:
@@ -613,7 +768,7 @@ class Context:
       for line in tests:
         print('  ' + line)
 
-    print_timings(steps, timings, total_elapsed)
+    print_summary(steps, usages, total_elapsed, peak_rss, opts.resources)
 
     # Configs that could not be resolved (unknown ABI or missing toolchain)
     # were never built but must still make the invocation fail.
@@ -1370,6 +1525,11 @@ def get_parser():
                       help='make -j jobs per build targeted by "-p auto" '
                            '(default: auto-tuned from the CPU count)',
                       type=int, default=None)
+  parser.add_argument('-r', dest='resources',
+                      help='Also report the CPU time and the memory each build '
+                           'used, which tells how well a given -p spread fills '
+                           'the machine',
+                      action='store_true', default=False)
   parser.add_argument('-k', dest='keep',
                       help='Keep old file and just run the command',
                       action='store_true', default=False)
