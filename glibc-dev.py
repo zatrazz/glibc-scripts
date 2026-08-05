@@ -1,12 +1,13 @@
 #! /usr/bin/env python3
 
-"""Run the testsuite of a single glibc build tree, natively, under qemu-user,
-or on a remote machine over ssh, and wrap the git commands that come up while
-working on glibc."""
+"""Run the testsuite of one or more glibc build trees, natively, under
+qemu-user, or on a remote machine over ssh, and wrap the git commands that
+come up while working on glibc."""
 
 import argparse
 import collections
 import configparser
+import fnmatch
 import glob
 import os
 import re
@@ -104,26 +105,47 @@ def read_config():
   return dict(config['glibc-tools'])
 
 
+def expand_abis(patterns, builddir):
+  try:
+    entries = sorted(os.listdir(builddir))
+  except OSError:
+    entries = []
+  trees = [name for name in entries
+           if os.path.isfile(os.path.join(builddir, name, 'config.make'))]
+  names = {}
+  for pattern in patterns:
+    if any(c in pattern for c in '*?['):
+      matched = fnmatch.filter(trees, pattern)
+      if not matched:
+        raise Error("no build tree under %s matches '%s'"
+                    % (builddir, pattern))
+      for name in matched:
+        names[name] = True
+    else:
+      names[pattern] = True
+  return list(names)
+
+
 class BuildTree:
   """The glibc build tree the commands act on."""
 
   def __init__(self, path):
     self.path = os.path.abspath(path)
+    self.name = os.path.basename(self.path)
     if not os.path.isfile(self.file('config.make')):
       raise Error("'%s' is not a glibc build tree (no config.make)" % path)
     self.srcdir = self._read_srcdir()
     self.subdirs = self._read_subdirs()
 
   @classmethod
-  def find(cls, opts):
-    """The tree named by --abi, or the one -C points at (the cwd by
-    default)."""
-    if not opts.abi:
-      return cls(opts.builddir)
+  def find_all(cls, opts):
+    if not opts.abis:
+      return [cls(opts.builddir)]
     builddir = read_config().get('builddir', '')
     if not builddir:
       raise Error('--abi needs a builddir, run glibc-tools-config.py')
-    return cls(os.path.join(builddir, opts.abi))
+    return [cls(os.path.join(builddir, name))
+            for name in expand_abis(opts.abis, builddir)]
 
   def file(self, *parts):
     return os.path.join(self.path, *parts)
@@ -433,6 +455,10 @@ class Report:
     self.npass = 0
     self.nskip = 0
     self.ntests = 0
+    # (status, name, log, shared) of every failure, for the cross-tree
+    # summary; shared marks a log covering a whole subdirectory rather than
+    # the single test.
+    self.failures = []
 
   def record(self, status, name, log, shared=False):
     """Note the verdict of one test."""
@@ -444,6 +470,7 @@ class Report:
       self.nskip += 1
     else:
       self.nfail += 1
+      self.failures.append((status, name, log, shared))
     if self.verbose or verdict in FAIL_VERDICTS:
       print(format_status(status))
 
@@ -454,6 +481,48 @@ class Report:
     if self.nfail:
       print('logs: %s' % self.tree.file(LOGDIR))
     return 1 if self.nfail else 0
+
+
+# How much of a failed test's output the cross-tree summary shows; the full
+# files are on disk and their paths are printed alongside.
+FAILURE_TAIL_LINES = 30
+
+def print_tail(path, label):
+  lines = read_lines(path)
+  if not lines:
+    print('%s: empty or missing (%s)' % (label, path))
+    return
+  tail = lines[-FAILURE_TAIL_LINES:]
+  if len(tail) < len(lines):
+    print('%s (last %d of %d lines): %s' % (label, len(tail), len(lines),
+                                            path))
+  else:
+    print('%s: %s' % (label, path))
+  for line in tail:
+    print('  ' + line)
+
+def print_trees_report(reports, elapsed):
+  print()
+  print(colorize('results by build tree:', bcolors.BOLD))
+  namew = max(len(report.tree.name) for report in reports) + 1
+  for report in reports:
+    line = '%-*s %d passed, %d failed, %d unsupported (of %d tests)' \
+           % (namew, report.tree.name + ':', report.npass, report.nfail,
+              report.nskip, report.ntests)
+    print(colorize(line, bcolors.FAIL if report.nfail else bcolors.OKGREEN))
+  print_summary(sum(r.npass for r in reports), sum(r.nfail for r in reports),
+                sum(r.nskip for r in reports), sum(r.ntests for r in reports),
+                elapsed)
+  for report in reports:
+    for status, name, log, shared in report.failures:
+      print()
+      print(colorize('--- %s: %s ---' % (report.tree.name, status),
+                     bcolors.BOLD))
+      print_tail(report.tree.file(name + '.out'), name + '.out')
+      if shared:
+        print('make output (stdout+stderr): %s' % log)
+      else:
+        print_tail(log, 'make output (stdout+stderr)')
 
 
 def remove_files(*paths):
@@ -550,75 +619,98 @@ def report_sum(tree, sumfile, log, timer, verbose=False):
 
 
 def cmd_test(opts):
-  """Run individual tests and whole subdirectories, one verdict per test."""
-  tree = BuildTree.find(opts)
-  # Started before anything runs, so that --build counts towards the total.
+  """Run individual tests and whole subdirectories, one verdict per test,
+  in one or more build trees."""
+  trees = BuildTree.find_all(opts)
+  # Started before anything runs, so that --build counts towards the total;
+  # with several trees each tree's summary shows the time up to that point,
+  # the cross-tree summary at the end being the total.
   timer = Timer()
 
-  # Classify the arguments up front, so that a directory that is not part of
-  # this build tree is reported before anything is run.
-  work = []
-  for name in opts.tests:
-    if tree.is_subdir(name):
-      work.append((True, name.rstrip('/')))
-    elif os.path.isdir(tree.file(name)):
-      raise Error("'%s' is not a subdirectory of this build tree" % name)
-    else:
-      work.append((False, tree.resolve_test(name)))
+  # Classify the arguments against every tree up front, so that a directory
+  # that is not part of one of the build trees is reported before anything is
+  # run.  The resolution is per tree: the subdirectory a test is built in can
+  # differ between configurations.
+  works = []
+  for tree in trees:
+    work = []
+    for name in opts.tests:
+      if tree.is_subdir(name):
+        work.append((True, name.rstrip('/')))
+      elif os.path.isdir(tree.file(name)):
+        raise Error("'%s' is not a subdirectory of build tree %s"
+                    % (name, tree.path))
+      else:
+        work.append((False, tree.resolve_test(name)))
+    works.append(work)
 
-  wrapper = make_wrapper(tree, opts)
-  if opts.build:
-    build(tree, opts)
+  reports = []
+  for tree, work in zip(trees, works):
+    if len(trees) > 1:
+      print('=== %s ===' % colorize(tree.name, bcolors.BOLD))
+    wrapper = make_wrapper(tree, opts)
+    if opts.build:
+      build(tree, opts)
+    report = Report(tree, opts.verbose, timer)
+    for is_subdir, name in work:
+      if is_subdir:
+        run_subdir(tree, name, wrapper, opts, report)
+      else:
+        run_one_test(tree, name, wrapper, opts, report)
+    report.finish()
+    reports.append(report)
 
-  report = Report(tree, opts.verbose, timer)
-  for is_subdir, name in work:
-    if is_subdir:
-      run_subdir(tree, name, wrapper, opts, report)
-    else:
-      run_one_test(tree, name, wrapper, opts, report)
-  return report.finish()
+  if len(trees) > 1:
+    print_trees_report(reports, timer.elapsed())
+  return 1 if any(report.nfail for report in reports) else 0
 
 def cmd_check(opts):
   """Run the testsuite the way make does, and report the failures from the
   summary files it leaves behind."""
-  tree = BuildTree.find(opts)
+  trees = BuildTree.find_all(opts)
   # Started before anything runs, so that --build counts towards the total;
-  # with several subdirectories each summary shows the time up to that point,
-  # the last one being the total for the command.
+  # with several subdirectories or trees each summary shows the time up to
+  # that point, the last one being the total for the command.
   timer = Timer()
 
   subdirs = [name.rstrip('/') for name in opts.subdirs]
-  for name in subdirs:
-    if not tree.is_subdir(name):
-      raise Error("'%s' is not a subdirectory of this build tree "
-                  "(individual tests go to the test command)" % name)
+  for tree in trees:
+    for name in subdirs:
+      if not tree.is_subdir(name):
+        raise Error("'%s' is not a subdirectory of build tree %s "
+                    "(individual tests go to the test command)"
+                    % (name, tree.path))
 
-  wrapper = make_wrapper(tree, opts)
-  if opts.build:
-    build(tree, opts)
-
-  variables = test_variables(wrapper, opts)
   jobs = jobs_for(opts)
   failed = False
 
-  if not subdirs:
-    log = tree.logfile('check.log')
-    if opts.verbose:
-      print('=== make check (full log: %s)' % log)
-    run_make(tree, ['check'], variables, log=log, jobs=jobs,
-             stream=opts.stream)
-    return 0 if report_sum(tree, 'tests.sum', log, timer,
-                           opts.verbose) else 1
+  for tree in trees:
+    if len(trees) > 1:
+      print('=== %s ===' % colorize(tree.name, bcolors.BOLD))
+    wrapper = make_wrapper(tree, opts)
+    if opts.build:
+      build(tree, opts)
+    variables = test_variables(wrapper, opts)
 
-  for subdir in subdirs:
-    log = tree.logfile(subdir + '-check.log')
-    if opts.verbose:
-      print('=== %s (full log: %s)' % (colorize(subdir, bcolors.BOLD), log))
-    run_make(tree, ['%s/tests' % subdir], variables, log=log, jobs=jobs,
-             stream=opts.stream)
-    if not report_sum(tree, '%s/subdir-tests.sum' % subdir, log, timer,
-                      opts.verbose):
-      failed = True
+    if not subdirs:
+      log = tree.logfile('check.log')
+      if opts.verbose:
+        print('=== make check (full log: %s)' % log)
+      run_make(tree, ['check'], variables, log=log, jobs=jobs,
+               stream=opts.stream)
+      if not report_sum(tree, 'tests.sum', log, timer, opts.verbose):
+        failed = True
+      continue
+
+    for subdir in subdirs:
+      log = tree.logfile(subdir + '-check.log')
+      if opts.verbose:
+        print('=== %s (full log: %s)' % (colorize(subdir, bcolors.BOLD), log))
+      run_make(tree, ['%s/tests' % subdir], variables, log=log, jobs=jobs,
+               stream=opts.stream)
+      if not report_sum(tree, '%s/subdir-tests.sum' % subdir, log, timer,
+                        opts.verbose):
+        failed = True
   return 1 if failed else 0
 
 def cmd_grep(opts):
@@ -665,10 +757,13 @@ def get_parser():
   common.add_argument('-C', dest='builddir', metavar='DIR', default='.',
                       help='Build tree to act on (default: the current '
                            'directory)')
-  common.add_argument('--abi', dest='abi', metavar='NAME', default='',
+  common.add_argument('--abi', dest='abis', metavar='NAME', action='append',
+                      default=[],
                       help='Build tree to act on, as a directory name under '
                            'the builddir of ~/.glibc-tools.ini (as built by '
-                           'glibc-tools.py)')
+                           'glibc-tools.py).  May be given several times and '
+                           'may be a glob ("x86_64*"), to act on each '
+                           'matching tree in turn')
   common.add_argument('-j', dest='jobs', metavar='N', type=int,
                       help='make -j level (default: the number of available '
                            'cpus, or %d under --ssh/--qemu)' % WRAPPED_JOBS)
@@ -716,7 +811,8 @@ Each argument is either an individual test ("nptl/tst-robust8", or just
 "tst-robust8" to have it looked up in the build tree) or a whole subdirectory
 ("nptl"), which runs every test in it.  The tests are re-run even if they ran
 before.  Only the failures are printed; what the tests and make wrote is left
-in the logs.''')
+in the logs.  With several --abi trees the run ends with a cross-tree
+summary that shows what every failed test wrote.''')
   test.add_argument('tests', nargs='+', metavar='test|subdir',
                     help='Tests and subdirectories to run')
   test.set_defaults(func=cmd_test)
