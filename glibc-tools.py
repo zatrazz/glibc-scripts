@@ -882,7 +882,7 @@ class Context:
                     os_name='linux-gnu',
                     variant='coldfire-soft')
     self.add_config(arch='loongarch32',
-                    os_name='linux-gnu')
+                    os_name='linux-gnuf64')
     self.add_config(arch='loongarch32',
                     os_name='linux-gnusf')
     self.add_config(arch='loongarch64',
