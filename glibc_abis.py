@@ -46,6 +46,7 @@ SPECIAL_LISTS = {
     "csky-linux-gnuabiv2",
     "hppa-linux-gnu",
     "i686-linux-gnu",
+    "loongarch32-linux-gnu",
     "loongarch64-linux-gnuf64",
     "m68k-linux-gnu",
     "m68k-linux-gnu-coldfire",
