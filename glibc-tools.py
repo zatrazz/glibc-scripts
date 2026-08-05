@@ -35,7 +35,6 @@ ACTIONS = (
   'update-abi',
   'bench-build',
   'update-syscall-lists',
-  'run-cmd',
   'list')
 
 def read_config(srcdir, suffix):
@@ -570,9 +569,6 @@ class Context:
     "bench-build":
       (lambda self, abi : self.resolved[abi].bench_build(),
        ["configure", "copylibs", "make", "bench-build"]),
-    "run-cmd":
-      (lambda self, abi : self.resolved[abi].run_cmd(),
-       ["configure", "make", "run-cmd"]),
   }
 
   def resolve_configs(self, requests, default_gccversion, check_compiler):
@@ -1219,11 +1215,6 @@ class Glibc:
 
   def update_syscall_lists(self):
     return ['make',
-            'update-syscall-lists']
-
-  def run_cmd(self):
-    return ['make',
-            '-j%d' % (self.ctx.current_jobs()),
             'update-syscall-lists']
 
 
