@@ -17,6 +17,8 @@ import subprocess
 import sys
 import time
 
+from glibc_abis import SPECIAL_LISTS
+
 HELP_WIDTH = 80
 
 # Every log this script writes lands here, relative to the build tree.
@@ -114,7 +116,19 @@ def expand_abis(patterns, builddir):
            if os.path.isfile(os.path.join(builddir, name, 'config.make'))]
   names = {}
   for pattern in patterns:
-    if any(c in pattern for c in '*?['):
+    members = SPECIAL_LISTS.get(pattern)
+    if members is not None:
+      built = [name for name in members if name in trees]
+      if not built:
+        raise Error("no build tree under %s for any member of '%s'"
+                    % (builddir, pattern))
+      missing = [name for name in members if name not in trees]
+      if missing:
+        print(colorize('warning: %s: no build tree for %s'
+                       % (pattern, ', '.join(missing)), bcolors.WARNING))
+      for name in built:
+        names[name] = True
+    elif any(c in pattern for c in '*?['):
       matched = fnmatch.filter(trees, pattern)
       if not matched:
         raise Error("no build tree under %s matches '%s'"
@@ -762,8 +776,9 @@ def get_parser():
                       help='Build tree to act on, as a directory name under '
                            'the builddir of ~/.glibc-tools.ini (as built by '
                            'glibc-tools.py).  May be given several times and '
-                           'may be a glob ("x86_64*"), to act on each '
-                           'matching tree in turn')
+                           'may be a glob ("x86_64*") or the name of an ABI '
+                           'group shared with glibc-tools.py ("linux"), to '
+                           'act on each matching tree in turn')
   common.add_argument('-j', dest='jobs', metavar='N', type=int,
                       help='make -j level (default: the number of available '
                            'cpus, or %d under --ssh/--qemu)' % WRAPPED_JOBS)
