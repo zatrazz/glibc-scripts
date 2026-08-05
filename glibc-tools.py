@@ -4,6 +4,7 @@ import sys
 import os
 import re
 import fnmatch
+import glob
 import copy
 import shutil
 import argparse
@@ -37,7 +38,8 @@ ACTIONS = (
   'update-abi',
   'bench-build',
   'update-syscall-lists',
-  'list')
+  'list',
+  'cleanup')
 
 def read_config(srcdir, suffix):
   config = configparser.RawConfigParser()
@@ -615,8 +617,9 @@ class Context:
     # ABIs).  Check it once, before any build directory is touched, so a bad
     # -s or a stale configured path gives a clear message rather than a cryptic
     # "No such file or directory" once configure runs -- and does not wipe a
-    # build directory on the way there.
-    if action != "list":
+    # build directory on the way there.  The list and cleanup actions do not
+    # build anything, so they need neither the source tree nor the toolchains.
+    if action not in ("list", "cleanup"):
       configure = os.path.join(PATHS["srcdir"], "configure")
       if not os.path.isfile(configure):
         print("error: no glibc source tree at %s: %s not found "
@@ -634,9 +637,10 @@ class Context:
     # Resolve requested ABI names (which may carry a -gcc<version> tag) into
     # per-run Glibc instances, reporting unknown ABIs and missing toolchains
     # up front instead of letting them surface as opaque build failures.  The
-    # list action only needs the names, so it skips the toolchain check.
-    resolved, config_errors = self.resolve_configs(glibcs, opts.gccversion,
-                                                    action != "list")
+    # list and cleanup actions only need the names, so they skip the
+    # toolchain check.
+    resolved, config_errors = self.resolve_configs(
+      glibcs, opts.gccversion, action not in ("list", "cleanup"))
     config_errors = glob_errors + config_errors
     self.resolved = resolved
     glibcs = list(resolved.keys())
@@ -646,7 +650,7 @@ class Context:
     # clearly here rather than letting the build command fail later with a bare
     # "No such file or directory" when it cannot chdir into the directory (and,
     # for actions that make, silently starting a full build from scratch).
-    if self.keep and action != "list":
+    if self.keep and action not in ("list", "cleanup"):
       present = []
       for abi in glibcs:
         if os.path.isdir(build_dir(abi)):
@@ -662,6 +666,10 @@ class Context:
 
     if action == "list":
       self.list_configs(glibcs)
+      return len(config_errors)
+
+    if action == "cleanup":
+      self.cleanup_configs(glibcs)
       return len(config_errors)
 
     if not glibcs:
@@ -1095,6 +1103,32 @@ class Context:
     for abi in glibcs:
       print(abi)
 
+  def cleanup_configs(self, glibcs):
+    def cleanup_abi(abi):
+      removed = []
+      builddir = build_dir(abi)
+      if os.path.isdir(builddir):
+        remove_dirs(builddir)
+        removed.append('build directory')
+      logs = glob.glob(PATHS['logsdir'] + '/' + abi + SUFFIX + '_*')
+      for log in logs:
+        try:
+          os.remove(log)
+        except OSError:
+          pass
+      if logs:
+        removed.append('%d log file%s' % (len(logs),
+                                          '' if len(logs) == 1 else 's'))
+      return '%s: %s' % (abi + SUFFIX,
+                         'removed ' + ' and '.join(removed) if removed
+                         else 'nothing to remove')
+
+    workers = min(len(glibcs), available_cpus()) if glibcs else 1
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) \
+         as executor:
+      for line in executor.map(cleanup_abi, glibcs):
+        print(line)
+
 
 class Glibc:
   """A configuration for building glibc."""
@@ -1389,7 +1423,7 @@ def main(argv):
     opts.parallelize = auto_parallelize(len(configs), opts.overcommit,
                                         opts.jobs_per_build)
 
-  if opts.action != "list":
+  if opts.action not in ("list", "cleanup"):
     parallelize, build_jobs = opts.parallelize
     prefix = "auto-parallelize" if autotuned else "parallelize"
     if parallelize > 1:
