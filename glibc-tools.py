@@ -513,15 +513,23 @@ def stamp_valid(abi, action, cmd):
                for lib in cmd[1:-1])
   return True
 
-def failing_tests(abi):
-  # The failing tests of a "make check" run are the FAIL: lines of the test
-  # summary left in the build directory.
-  sumfile = build_dir (abi) + '/tests.sum'
-  try:
-    with open(sumfile) as f:
-      return [line.rstrip('\n') for line in f if line.startswith('FAIL:')]
-  except OSError:
-    return []
+def failing_tests(abi, subdirs=()):
+  # The failing tests of a test run are the 'FAIL:' lines of the test summary
+  # left in the build directory, the whole-suite tests.sum, or each requested
+  # subdirectory's own subdir-tests.sum for a --subdir run.
+  builddir = build_dir (abi)
+  if subdirs:
+    sumfiles = [os.path.join(builddir, d, 'subdir-tests.sum') for d in subdirs]
+  else:
+    sumfiles = [os.path.join(builddir, 'tests.sum')]
+  fails = []
+  for sumfile in sumfiles:
+    try:
+      with open(sumfile) as f:
+        fails.extend(line.rstrip('\n') for line in f if line.startswith('FAIL:'))
+    except OSError:
+      pass
+  return fails
 
 
 class Context:
@@ -540,6 +548,8 @@ class Context:
     self.active_lock = threading.Lock()
 
     self.run_built_tests = 'yes' if opts.run_built_tests else 'no'
+
+    self.subdirs = opts.subdirs
 
     self.timeoutfactor = opts.timeoutfactor
 
@@ -776,12 +786,16 @@ class Context:
           abi_usage[act] = usage
           if abort.is_set():
             return 1
+          if act in TEST_ACTIONS:
+            # The per-subdirectory tests targets of a --subdir run exit 0
+            # even when tests fail (only the whole-suite check target greps
+            # its summary), so the summary decides the step's result.
+            tests = failing_tests(abi, self.subdirs)
+            if tests:
+              test_fails[abiname(abi)] = tests
+              resultcode = resultcode or 1
           reporter.finished(abi, act, resultcode == 0, usage)
           if resultcode != 0:
-            if act in TEST_ACTIONS:
-              tests = failing_tests(abi)
-              if tests:
-                test_fails[abiname(abi)] = tests
             return 1
           if act in STAMPED_ACTIONS:
             write_stamp(abi, act, cmd)
@@ -1280,17 +1294,26 @@ class Glibc:
       return ['TIMEOUTFACTOR=%s' % (self.ctx.timeoutfactor)]
     return []
 
+  def subdir_targets(self):
+    return ['%s/tests' % d for d in self.ctx.subdirs]
+
   def check(self):
-    return ['make',
-            'check',
-            'run-built-tests=%s' % (self.ctx.run_built_tests),
-            '-j%d' % (self.ctx.current_jobs())] + self.timeoutfactor_opt()
+    return ['make'] \
+           + (self.subdir_targets() or ['check']) \
+           + ['run-built-tests=%s' % (self.ctx.run_built_tests),
+              '-j%d' % (self.ctx.current_jobs())] + self.timeoutfactor_opt()
 
   def check_parallel(self):
-    return ['make',
-            'check-parallel',
-            'run-built-tests=%s' % (self.ctx.run_built_tests),
-            '-j%d' % (self.ctx.current_jobs())] + self.timeoutfactor_opt()
+    # check-parallel is 'make serialize-tests=no tests', so a --subdir run
+    # restricts it by driving the subdirectory tests targets directly with
+    # the same serialize-tests=no.
+    if self.ctx.subdirs:
+      targets = ['serialize-tests=no'] + self.subdir_targets()
+    else:
+      targets = ['check-parallel']
+    return ['make'] + targets \
+           + ['run-built-tests=%s' % (self.ctx.run_built_tests),
+              '-j%d' % (self.ctx.current_jobs())] + self.timeoutfactor_opt()
 
   def check_abi(self):
     return ['make',
@@ -1410,6 +1433,13 @@ def get_parser():
                       action='store_true', default=False)
   parser.add_argument('--timeoutfactor', dest='timeoutfactor',
                       help='Set the TIMEOUTFACTOR for make check', default='')
+  parser.add_argument('--subdir', dest='subdirs', action='append', default=[],
+                      metavar='SUBDIR',
+                      help='Restrict the check actions to a glibc source '
+                           'subdirectory, running "make SUBDIR/tests" instead '
+                           'of the whole test suite (failures are then read '
+                           'from the subdirectory test summary); may be given '
+                           'multiple times or as a comma-separated list')
   parser.add_argument('-s', dest='srcdir', default='',
                       help='glibc source tree to use; a plain name is resolved '
                            'beside the configured source tree (default: the '
@@ -1474,6 +1504,13 @@ def get_parser():
 def main(argv):
   parser = get_parser()
   opts = parser.parse_args(argv)
+
+  # Tab completion of a directory leaves a trailing slash on the name.
+  opts.subdirs = [s.rstrip('/') for arg in opts.subdirs
+                  for s in arg.split(',') if s.rstrip('/')]
+  if opts.subdirs and opts.action not in TEST_ACTIONS:
+    parser.error('--subdir only applies to the %s actions'
+                 % ' and '.join(TEST_ACTIONS))
 
   read_config (opts.srcdir, opts.suffix)
 
