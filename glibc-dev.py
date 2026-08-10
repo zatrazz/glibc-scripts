@@ -107,7 +107,10 @@ def read_config():
   return dict(config['glibc-tools'])
 
 
-def expand_abis(patterns, builddir):
+def expand_abis(patterns, builddir, suffix=''):
+  # glibc-tools.py -u appends "-<suffix>" to the directory of every tree it
+  # builds; the same suffix here selects those trees.
+  tag = '-' + suffix if suffix else ''
   try:
     entries = sorted(os.listdir(builddir))
   except OSError:
@@ -118,10 +121,11 @@ def expand_abis(patterns, builddir):
   for pattern in patterns:
     members = SPECIAL_LISTS.get(pattern)
     if members is not None:
+      members = [name + tag for name in members]
       built = [name for name in members if name in trees]
       if not built:
         raise Error("no build tree under %s for any member of '%s'"
-                    % (builddir, pattern))
+                    % (builddir, pattern + tag))
       missing = [name for name in members if name not in trees]
       if missing:
         print(colorize('warning: %s: no build tree for %s'
@@ -129,14 +133,14 @@ def expand_abis(patterns, builddir):
       for name in built:
         names[name] = True
     elif any(c in pattern for c in '*?['):
-      matched = fnmatch.filter(trees, pattern)
+      matched = fnmatch.filter(trees, pattern + tag)
       if not matched:
         raise Error("no build tree under %s matches '%s'"
-                    % (builddir, pattern))
+                    % (builddir, pattern + tag))
       for name in matched:
         names[name] = True
     else:
-      names[pattern] = True
+      names[pattern + tag] = True
   return list(names)
 
 
@@ -159,7 +163,7 @@ class BuildTree:
     if not builddir:
       raise Error('--abi needs a builddir, run glibc-tools-config.py')
     return [cls(os.path.join(builddir, name))
-            for name in expand_abis(opts.abis, builddir)]
+            for name in expand_abis(opts.abis, builddir, opts.suffix)]
 
   def file(self, *parts):
     return os.path.join(self.path, *parts)
@@ -779,6 +783,10 @@ def get_parser():
                            'may be a glob ("x86_64*") or the name of an ABI '
                            'group shared with glibc-tools.py ("linux"), to '
                            'act on each matching tree in turn')
+  common.add_argument('-u', dest='suffix', default='',
+                      help='Suffix appended to the directory names selected '
+                           'with --abi, to act on trees built with the -u '
+                           'of glibc-tools.py')
   common.add_argument('-j', dest='jobs', metavar='N', type=int,
                       help='make -j level (default: the number of available '
                            'cpus, or %d under --ssh/--qemu)' % WRAPPED_JOBS)
