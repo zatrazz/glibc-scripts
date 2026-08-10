@@ -275,7 +275,8 @@ class Reporter:
   The ABI name is shown in bold cyan and the action in yellow; the action
   column tracks the step being run, the status column is empty while the
   step is in progress and shows the step's result once it finishes (in blue
-  for a success and red for a failure), and the time column shows how long
+  for a success, red for a failure, and cyan for a step -k skipped as already
+  done), and the time column shows how long
   the finished step took, followed by the CPU and the memory it used when
   resources (-r) is set.
 
@@ -292,6 +293,7 @@ class Reporter:
     'run':  ('', ''),
     'pass': ('PASS', bcolors.OKBLUE),
     'fail': ('FAIL', bcolors.FAIL),
+    'skip': ('SKIP', bcolors.OKCYAN),
   }
 
   def __init__(self, entries, steps, resources):
@@ -345,14 +347,20 @@ class Reporter:
       if self.live:
         self._redraw()
 
-  def finished(self, abi, step, ok, usage=None):
+  def _settle(self, abi, step, status, usage):
     name = self.abi_name[abi]
     with self.lock:
-      self.state[name] = (step, 'pass' if ok else 'fail', usage)
+      self.state[name] = (step, status, usage)
       if self.live:
         self._redraw()
       else:
         print(self._line(name))
+
+  def finished(self, abi, step, ok, usage=None):
+    self._settle(abi, step, 'pass' if ok else 'fail', usage)
+
+  def skipped(self, abi, step):
+    self._settle(abi, step, 'skip', None)
 
   def failed(self, abi, step='<exception>'):
     self.finished(abi, step, False)
@@ -462,6 +470,48 @@ class MemorySampler(threading.Thread):
 
 # Actions that run the test suite and leave a summary in tests.sum.
 TEST_ACTIONS = ('check', 'check-parallel')
+
+# Steps that -k may skip on a re-run: their work is a pure function of their
+# command line, so a stamp recording the command of the last successful run
+# tells whether running again would just redo the same work.  make and the
+# check steps are never stamped: make is incremental on its own and must run
+# to pick up source changes, and the checks are the work being requested.
+STAMPED_ACTIONS = ('configure', 'copylibs')
+
+def stamp_file(abi, action):
+  # Kept inside the build directory so that a non--k run, which wipes the
+  # directory, invalidates the stamps with it.
+  return os.path.join(build_dir(abi), '.glibc-tools-stamps', action)
+
+def stamp_content(cmd):
+  return '\0'.join(cmd)
+
+def read_stamp(abi, action):
+  try:
+    with open(stamp_file(abi, action)) as f:
+      return f.read()
+  except OSError:
+    return None
+
+def write_stamp(abi, action, cmd):
+  path = stamp_file(abi, action)
+  os.makedirs(os.path.dirname(path), exist_ok=True)
+  with open(path, 'w') as f:
+    f.write(stamp_content(cmd))
+
+def stamp_valid(abi, action, cmd):
+  """Whether a stamped step may be skipped: its last successful run used this
+  exact command and its outputs are still in the build directory."""
+  if read_stamp(abi, action) != stamp_content(cmd):
+    return False
+  builddir = build_dir(abi)
+  if action == 'configure':
+    return os.path.isfile(os.path.join(builddir, 'config.status'))
+  if action == 'copylibs':
+    # The command is cp <libs...> <builddir>.
+    return all(os.path.isfile(os.path.join(builddir, os.path.basename(lib)))
+               for lib in cmd[1:-1])
+  return True
 
 def failing_tests(abi):
   # The failing tests of a "make check" run are the FAIL: lines of the test
@@ -716,6 +766,12 @@ class Context:
             return 1
           reporter.running(abi, act)
           cmd = self.CMD_MAP[act][0](self, abi)
+          # With -k a stamped step whose command has not changed since its
+          # last successful run is skipped, so a build-then-test workflow
+          # does not pay for a full reconfigure per ABI again.
+          if self.keep and act in STAMPED_ACTIONS and stamp_valid(abi, act, cmd):
+            reporter.skipped(abi, act)
+            continue
           resultcode, usage = run_cmd(abi, act, cmd)
           abi_usage[act] = usage
           if abort.is_set():
@@ -727,6 +783,8 @@ class Context:
               if tests:
                 test_fails[abiname(abi)] = tests
             return 1
+          if act in STAMPED_ACTIONS:
+            write_stamp(abi, act, cmd)
         return 0
       finally:
         self.build_finished()
@@ -1342,7 +1400,10 @@ def get_parser():
                            'the machine',
                       action='store_true', default=False)
   parser.add_argument('-k', dest='keep',
-                      help='Keep old file and just run the command',
+                      help='Keep the build directories instead of starting '
+                           'from scratch; configure and copylibs steps whose '
+                           'command is unchanged since their last successful '
+                           'run are skipped',
                       action='store_true', default=False)
   parser.add_argument('-t', dest='run_built_tests',
                       help='Run built tests',
