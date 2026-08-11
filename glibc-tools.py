@@ -694,6 +694,37 @@ class Context:
     if action == "list":
       glibcs, glob_errors = match_configs(glibcs, self.glibc_configs.keys())
 
+    # The cleanup action also accepts directories, which is how builds whose
+    # name no longer resolves as a configuration (a stale ABI name, or a
+    # suffixed build made with -u) are removed.
+    cleanup_dirs = []
+    dir_errors = []
+    if action == "cleanup":
+      remaining = []
+      for request in glibcs:
+        # Tab completion of a directory leaves a trailing slash on the name.
+        name = request.rstrip('/')
+        if os.path.sep in name:
+          path = os.path.expanduser(name)
+          if os.path.isdir(path):
+            cleanup_dirs.append(os.path.normpath(path))
+          else:
+            dir_errors.append("error: no such directory: %s" % request)
+          continue
+        base, _ = split_gccversion(name, '')
+        if base in self.glibc_configs:
+          remaining.append(name)
+        elif os.path.isdir(os.path.join(PATHS['builddir'], name)):
+          cleanup_dirs.append(
+            os.path.normpath(os.path.join(PATHS['builddir'], name)))
+        elif os.path.isdir(name):
+          cleanup_dirs.append(os.path.normpath(name))
+        else:
+          remaining.append(name)
+      glibcs = remaining
+      # Duplicates collapse, as they do for ABI names during resolution.
+      cleanup_dirs = list(dict.fromkeys(cleanup_dirs))
+
     # Resolve requested ABI names (which may carry a -gcc<version> tag) into
     # per-run Glibc instances, reporting unknown ABIs and missing toolchains
     # up front instead of letting them surface as opaque build failures.  The
@@ -701,7 +732,7 @@ class Context:
     # toolchain check.
     resolved, config_errors = self.resolve_configs(
       glibcs, opts.gccversion, action not in ("list", "cleanup"))
-    config_errors = glob_errors + config_errors
+    config_errors = glob_errors + dir_errors + config_errors
     self.resolved = resolved
     glibcs = list(resolved.keys())
 
@@ -729,7 +760,7 @@ class Context:
       return len(config_errors)
 
     if action == "cleanup":
-      self.cleanup_configs(glibcs)
+      self.cleanup_configs(glibcs, cleanup_dirs)
       return len(config_errors)
 
     if not glibcs:
@@ -1175,14 +1206,13 @@ class Context:
     for abi in glibcs:
       print(abi)
 
-  def cleanup_configs(self, glibcs):
-    def cleanup_abi(abi):
+  def cleanup_configs(self, glibcs, dirs):
+    def cleanup(name, builddir, logprefix):
       removed = []
-      builddir = build_dir(abi)
       if os.path.isdir(builddir):
         remove_dirs(builddir)
         removed.append('build directory')
-      logs = glob.glob(PATHS['logsdir'] + '/' + abi + SUFFIX + '_*')
+      logs = glob.glob(PATHS['logsdir'] + '/' + logprefix + '_*')
       for log in logs:
         try:
           os.remove(log)
@@ -1191,14 +1221,22 @@ class Context:
       if logs:
         removed.append('%d log file%s' % (len(logs),
                                           '' if len(logs) == 1 else 's'))
-      return '%s: %s' % (abi + SUFFIX,
+      return '%s: %s' % (name,
                          'removed ' + ' and '.join(removed) if removed
                          else 'nothing to remove')
 
-    workers = min(len(glibcs), available_cpus()) if glibcs else 1
+    def cleanup_abi(abi):
+      return cleanup(abi + SUFFIX, build_dir(abi), abi + SUFFIX)
+
+    def cleanup_dir(directory):
+      return cleanup(directory, directory, os.path.basename(directory))
+
+    tasks = [(cleanup_abi, abi) for abi in glibcs] \
+            + [(cleanup_dir, directory) for directory in dirs]
+    workers = min(len(tasks), available_cpus()) if tasks else 1
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) \
          as executor:
-      for line in executor.map(cleanup_abi, glibcs):
+      for line in executor.map(lambda task: task[0](task[1]), tasks):
         print(line)
 
 
@@ -1496,7 +1534,11 @@ def get_parser():
                       help='Configurations to build (ex. x86_64-linux-gnu); '
                            'append -gcc<version> to pick a gcc version for that ABI. '
                            'The list action takes them as globs instead (ex. '
-                           '"arm*"), and lists every configuration if none is given',
+                           '"arm*"), and lists every configuration if none is given. '
+                           'The cleanup action also accepts build directories '
+                           '(paths, or names under the configured build '
+                           'directory); each is removed along with the log '
+                           'files named after it',
                       nargs='*')
   return parser
 
