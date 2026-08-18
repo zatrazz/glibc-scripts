@@ -16,7 +16,7 @@ SPECIAL_LISTS = {
     "hppa-linux-gnu",
     "i686-linux-gnu",
     "loongarch64-linux-gnuf64",
-    "loongarch32-linux-gnuf64"
+    "loongarch32-linux-gnuf64",
     "m68k-linux-gnu",
     "microblaze-linux-gnu",
     "mips64el-linux-gnu",
