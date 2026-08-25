@@ -162,8 +162,9 @@ class BuildTree:
     builddir = read_config().get('builddir', '')
     if not builddir:
       raise Error('--abi needs a builddir, run glibc-tools-config.py')
+    patterns = [name for arg in opts.abis for name in arg.split(',') if name]
     return [cls(os.path.join(builddir, name))
-            for name in expand_abis(opts.abis, builddir, opts.suffix)]
+            for name in expand_abis(patterns, builddir, opts.suffix)]
 
   def file(self, *parts):
     return os.path.join(self.path, *parts)
@@ -277,7 +278,10 @@ def run_make(tree, targets, variables=(), log=None, jobs=1, keep_going=False,
 
 def test_variables(wrapper, opts):
   """The make variables that turn a build target into a test run."""
-  variables = [('run-built-tests', 'yes')]
+  # --no-run only exists on the check command; the test command always runs
+  # what it builds.
+  run = 'no' if getattr(opts, 'no_run', False) else 'yes'
+  variables = [('run-built-tests', run)]
   if wrapper:
     variables.append(('test-wrapper', wrapper))
   if opts.timeoutfactor:
@@ -601,6 +605,18 @@ def run_subdir(tree, subdir, wrapper, opts, report):
     if read_test_result(tree, name) is None:
       report.record('BUILD-ERROR: %s' % name, name, log, shared=True)
 
+def report_build(status, log, timer):
+  """Report the outcome of a --no-run run, where make's exit status is all
+  there is: nothing was run, so there are no verdicts.  Returns True if the
+  build succeeded."""
+  if status:
+    print(colorize('build failed in %s, see %s'
+                   % (format_duration(timer.elapsed()), log), bcolors.FAIL))
+    return False
+  print(colorize('build ok in %s' % format_duration(timer.elapsed()),
+                 bcolors.OKGREEN))
+  return True
+
 def report_sum(tree, sumfile, log, timer, verbose=False):
   """Print the failures listed in a test summary file, and count its
   verdicts.  Returns True if everything in it passed.
@@ -714,9 +730,12 @@ def cmd_check(opts):
       log = tree.logfile('check.log')
       if opts.verbose:
         print('=== make check (full log: %s)' % log)
-      run_make(tree, ['check'], variables, log=log, jobs=jobs,
-               stream=opts.stream)
-      if not report_sum(tree, 'tests.sum', log, timer, opts.verbose):
+      status = run_make(tree, ['check'], variables, log=log, jobs=jobs,
+                        stream=opts.stream)
+      if opts.no_run:
+        if not report_build(status, log, timer):
+          failed = True
+      elif not report_sum(tree, 'tests.sum', log, timer, opts.verbose):
         failed = True
       continue
 
@@ -724,10 +743,13 @@ def cmd_check(opts):
       log = tree.logfile(subdir + '-check.log')
       if opts.verbose:
         print('=== %s (full log: %s)' % (colorize(subdir, bcolors.BOLD), log))
-      run_make(tree, ['%s/tests' % subdir], variables, log=log, jobs=jobs,
-               stream=opts.stream)
-      if not report_sum(tree, '%s/subdir-tests.sum' % subdir, log, timer,
-                        opts.verbose):
+      status = run_make(tree, ['%s/tests' % subdir], variables, log=log,
+                        jobs=jobs, stream=opts.stream)
+      if opts.no_run:
+        if not report_build(status, log, timer):
+          failed = True
+      elif not report_sum(tree, '%s/subdir-tests.sum' % subdir, log, timer,
+                          opts.verbose):
         failed = True
   return 1 if failed else 0
 
@@ -779,10 +801,11 @@ def get_parser():
                       default=[],
                       help='Build tree to act on, as a directory name under '
                            'the builddir of ~/.glibc-tools.ini (as built by '
-                           'glibc-tools.py).  May be given several times and '
-                           'may be a glob ("x86_64*") or the name of an ABI '
-                           'group shared with glibc-tools.py ("linux"), to '
-                           'act on each matching tree in turn')
+                           'glibc-tools.py).  May be given several times or '
+                           'as a comma-separated list, and each name may be '
+                           'a glob ("x86_64*") or the name of an ABI group '
+                           'shared with glibc-tools.py ("linux"), to act on '
+                           'each matching tree in turn')
   common.add_argument('-u', dest='suffix', default='',
                       help='Suffix appended to the directory names selected '
                            'with --abi, to act on trees built with the -u '
@@ -850,6 +873,10 @@ With no argument this is "make check" over the whole tree; with subdirectory
 arguments it is "make <subdir>/tests" for each of them.  Unlike the test
 command this only runs what is not up to date, and reports the verdicts make
 recorded rather than re-running anything.''')
+  check.add_argument('--no-run', dest='no_run', action='store_true',
+                     help='Only build the tests (run-built-tests=no) without '
+                          'running them; reports whether the build succeeded '
+                          'instead of test verdicts')
   check.add_argument('subdirs', nargs='*', metavar='subdir',
                      help='Subdirectories to check (default: the whole tree)')
   check.set_defaults(func=cmd_check)
