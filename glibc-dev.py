@@ -529,6 +529,9 @@ def where_to_run(trees, opts):
   specific name given after a glob overrides it, and an empty value
   ("x86_64*=") pins the tree to a native run.  A tree cannot be under both
   ssh and qemu.
+
+  A pattern matches either the tree name or, under -u, the ABI name without
+  the suffix, so "aarch64-linux-gnu" also selects aarch64-linux-gnu-work.
   """
   config = [(kind, pattern, value) for kind in ('ssh', 'qemu')
             for pattern, value in read_config(kind).items()]
@@ -536,13 +539,20 @@ def where_to_run(trees, opts):
            for kind, args in (('ssh', opts.ssh), ('qemu', opts.qemu))
            for arg in args]
 
+  tag = '-' + opts.suffix if opts.suffix else ''
+  def matches(tree, pattern):
+    if fnmatch.fnmatchcase(tree.name, pattern):
+      return True
+    return bool(tag) and tree.name.endswith(tag) \
+      and fnmatch.fnmatchcase(tree.name[:-len(tag)], pattern)
+
   wheres = {}
   for tree in trees:
     where = None
     for entries, source in ((given, 'the command line'),
                             (config, '~/.glibc-tools.ini')):
       found = [(kind, value) for kind, pattern, value in entries
-               if fnmatch.fnmatchcase(tree.name, pattern)]
+               if matches(tree, pattern)]
       if not found:
         continue
       kinds = dict(found)
@@ -556,7 +566,7 @@ def where_to_run(trees, opts):
 
   # A pattern that selects no tree is most likely a typo.
   for kind, pattern, value in given:
-    if not any(fnmatch.fnmatchcase(tree.name, pattern) for tree in trees):
+    if not any(matches(tree, pattern) for tree in trees):
       print(colorize("warning: --%s %s=%s matches none of the trees"
                      % (kind, pattern, value), bcolors.WARNING))
   return wheres
