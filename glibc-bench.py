@@ -18,6 +18,7 @@ Examples:
 
 import argparse
 import json
+import math
 import os
 import re
 import shlex
@@ -464,15 +465,23 @@ def change_of(field, old, new):
   improved = percent > 0 if field in HIGHER_IS_BETTER else percent < 0
   return percent, improved
 
+def geomean_change(ratios):
+  """The geometric mean of new/old ratios as a percent change."""
+  if not ratios:
+    return None
+  return (math.exp(sum(math.log(r) for r in ratios) / len(ratios)) - 1) * 100
+
 def compare_results(old, new, threshold):
   """Print the measurements side by side; returns how many improved and
-  regressed beyond the threshold."""
+  regressed beyond the threshold and the new/old ratios of each
+  function, those of the higher-is-better measurements inverted."""
   olds = dict(flatten(old))
   news = dict(flatten(new))
   paths = list(olds)
   paths += [path for path in news if path not in olds]
   rows = []
   nbetter = nworse = 0
+  ratios = {}
   for path in paths:
     a, b = olds.get(path), news.get(path)
     function, variant, field, name = describe(path)
@@ -483,9 +492,11 @@ def compare_results(old, new, threshold):
       row.append('')
     else:
       percent, improved = change_of(field, a, b)
-      if percent is None:
+      if percent is None or a <= 0 or b <= 0:
         row.append('')
       else:
+        ratio = b / a if field not in HIGHER_IS_BETTER else a / b
+        ratios.setdefault(function, []).append(ratio)
         cell = '%+.2f%%' % percent
         if abs(percent) >= threshold:
           if improved:
@@ -498,7 +509,7 @@ def compare_results(old, new, threshold):
     rows.append(row)
   print_table(rows, ['function', 'variant', 'measurement', 'old', 'new',
                      'change'])
-  return nbetter, nworse
+  return nbetter, nworse, ratios
 
 def command_compare(opts):
   oldpath, newpath = opts.compare
@@ -509,10 +520,16 @@ def command_compare(opts):
                    % (old_timing, oldpath, new_timing, newpath),
                    bcolors.WARNING))
   print('old: %s\nnew: %s\n' % (oldpath, newpath))
-  nbetter, nworse = compare_results(old, new, opts.threshold)
+  nbetter, nworse, ratios = compare_results(old, new, opts.threshold)
   print()
+  if len(ratios) > 1:
+    print('geomean: ' + ', '.join('%s %+.2f%%' % (f, geomean_change(r))
+                                  for f, r in ratios.items()))
+  overall = geomean_change([r for rs in ratios.values() for r in rs])
   summary = 'summary: %d improvements, %d regressions beyond %g%%' \
             % (nbetter, nworse, opts.threshold)
+  if overall is not None:
+    summary += ', geomean %+.2f%% (lower is better)' % overall
   print(colorize(summary, bcolors.FAIL if nworse else bcolors.OKGREEN))
   return 0
 
