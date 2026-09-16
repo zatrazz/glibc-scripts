@@ -342,12 +342,21 @@ def table_fields(variants):
   order = {name: i for i, name in enumerate(FIELD_ORDER)}
   return sorted(fields, key=lambda f: (order.get(f, len(order)), f))
 
+ANSI_ESCAPE = re.compile(r'\033\[[0-9;]*m')
+
+def visible_len(text):
+  return len(ANSI_ESCAPE.sub('', text))
+
 def print_table(rows, header):
-  widths = [max(len(row[i]) for row in [header] + rows)
+  """Print the rows under the header, the first column left aligned and
+  the others right aligned, the color escapes not counting."""
+  widths = [max(visible_len(row[i]) for row in [header] + rows)
             for i in range(len(header))]
+  def pad(width, cell):
+    return ' ' * (width - visible_len(cell))
   def fmt(row):
-    cells = ['%-*s' % (widths[0], row[0])]
-    cells += ['%*s' % (w, cell) for w, cell in zip(widths[1:], row[1:])]
+    cells = [row[0] + pad(widths[0], row[0])]
+    cells += [pad(w, cell) + cell for w, cell in zip(widths[1:], row[1:])]
     return '  '.join(cells).rstrip()
   print(colorize(fmt(header), bcolors.BOLD))
   for row in rows:
