@@ -262,18 +262,19 @@ def make_benchmarks(specs, tree):
 class Progress:
   """Live one-line-per-benchmark display, after the one of glibc-dev.py:
 
-    <benchmark>:      | run <i>/<n> | <PASS|FAIL|SKIP> | <time>
+    <benchmark>:      | run <i>/<n> | <results|FAIL|SKIP> | <time>
 
-  The step column tracks the run the benchmark is on, the status column
-  fills in once its runs are over and the time column shows how long they
-  took.  When the output is not a terminal, or the block does not fit on
-  it, a line is printed whenever a benchmark finishes instead.
+  The step column tracks the run the benchmark is on, the results column
+  shows the best timings so far (see summarize) or how the benchmark
+  failed, and the time column how long its runs took.  When the output is
+  not a terminal, or the block does not fit on it, a line is printed
+  whenever a benchmark finishes instead.
   """
 
-  # status -> (label, color)
+  # status -> (label, color); the label of a pass is the results.
   _STATUS = {
     'run': ('', ''),
-    'pass': ('PASS', bcolors.OKGREEN),
+    'pass': ('', bcolors.OKGREEN),
     'fail': ('FAIL', bcolors.FAIL),
     'skip': ('SKIP', bcolors.WARNING),
   }
@@ -284,8 +285,8 @@ class Progress:
     self.nruns = nruns
     self.namew = max(len(name) for name in names) + 1
     self.stepw = len(self._step(nruns))
-    # name -> (step, status, elapsed)
-    self.state = {name: ('', 'run', None) for name in names}
+    # name -> (step, status, results, elapsed)
+    self.state = {name: ('', 'run', '', None) for name in names}
     self.began = {}
 
     rows = shutil.get_terminal_size((0, 0)).lines
@@ -298,8 +299,9 @@ class Progress:
     return 'run %d/%d' % (run, self.nruns)
 
   def _line(self, name):
-    step, status, elapsed = self.state[name]
+    step, status, results, elapsed = self.state[name]
     label, color = self._STATUS[status]
+    label = label or results
     return '%s | %s | %s | %s' % (
       colorize('%-*s' % (self.namew, name + ':'), bcolors.BOLD),
       colorize('%-*s' % (self.stepw, step), bcolors.WARNING),
@@ -313,15 +315,15 @@ class Progress:
       self.out.write('\r\033[K' + self._line(name) + '\n')
     self.out.flush()
 
-  def running(self, name, run):
+  def running(self, name, run, results=''):
     self.began.setdefault(name, time.monotonic())
-    self.state[name] = (self._step(run), 'run', None)
+    self.state[name] = (self._step(run), 'run', results, None)
     if self.live:
       self._redraw()
 
-  def finished(self, name, run, status):
+  def finished(self, name, run, status, results=''):
     elapsed = time.monotonic() - self.began.get(name, time.monotonic())
-    self.state[name] = (self._step(run), status, elapsed)
+    self.state[name] = (self._step(run), status, results, elapsed)
     if self.live:
       self._redraw()
     else:
@@ -331,6 +333,26 @@ class Progress:
 
 # --- Running ----------------------------------------------------------------
 
+def summarize(results):
+  """The headline timings of a benchmark on one line: the
+  reciprocal-throughput and latency of its workload variants, or the mean
+  of every variant when it has no workload."""
+  if not results:
+    return ''
+  workloads, means = [], []
+  for function in results.values():
+    for variant, measurements in variants_of(function):
+      name = variant or BASE_VARIANT
+      rthroughput = measurements.get('reciprocal-throughput')
+      latency = measurements.get('latency')
+      if is_number(rthroughput) or is_number(latency):
+        workloads.append('%s %s/%s' % (name, format_number(rthroughput),
+                                       format_number(latency)))
+      elif is_number(measurements.get('mean')):
+        means.append('%s %s' % (name, format_number(measurements['mean'])))
+  parts = workloads or means
+  return ', '.join(parts) if parts else 'PASS'
+
 def run_benchmarks(benchmarks, nruns, out):
   """Run every benchmark NRUNS times in turn, behind a Progress block."""
   progress = Progress([b.name for b in benchmarks], nruns, out)
@@ -338,13 +360,13 @@ def run_benchmarks(benchmarks, nruns, out):
     began = time.monotonic()
     run = 0
     for run in range(1, nruns + 1):
-      progress.running(bench.name, run)
+      progress.running(bench.name, run, summarize(bench.results))
       status = bench.run_once()
       if status != 'pass':
         break
     bench.status = status
     bench.elapsed = time.monotonic() - began
-    progress.finished(bench.name, run, status)
+    progress.finished(bench.name, run, status, summarize(bench.results))
 
 def variants_of(function):
   """The (variant, measurements) of a function, in the order they were
