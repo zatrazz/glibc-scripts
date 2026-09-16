@@ -368,17 +368,19 @@ def print_results(function, name):
     rows.append(row)
   print_table(rows, [name] + fields)
 
-def print_report(benchmarks):
+def print_report(benchmarks, verbose):
+  """The errors of the benchmarks that failed and, with verbose, the
+  measurements of every variant of the others."""
   for bench in benchmarks:
-    print()
     if bench.status != 'pass':
       label = 'unsupported' if bench.status == 'skip' else 'failed'
-      print(colorize('%s: %s' % (bench.name, label), bcolors.FAIL))
+      print(colorize('\n%s: %s' % (bench.name, label), bcolors.FAIL))
       for line in bench.error.splitlines():
         print('  ' + line)
-      continue
-    for name, function in bench.results.items():
-      print_results(function, name)
+    elif verbose:
+      for name, function in bench.results.items():
+        print()
+        print_results(function, name)
 
 def save_results(path, benchmarks, timing_type):
   """Write the results in the layout of the bench.out of "make bench"."""
@@ -400,7 +402,7 @@ def command_run(opts):
            nruns, 's' if nruns != 1 else '',
            ' from %s' % tree.name if tree else ''))
   run_benchmarks(benchmarks, nruns, sys.stdout)
-  print_report(benchmarks)
+  print_report(benchmarks, opts.verbose)
   npass = sum(1 for b in benchmarks if b.status == 'pass')
   nfail = sum(1 for b in benchmarks if b.status == 'fail')
   if opts.output and npass:
@@ -519,7 +521,7 @@ def get_parser():
   parser = argparse.ArgumentParser(
     description=__doc__ % {'prog': os.path.basename(sys.argv[0])},
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    usage='%(prog)s [-n N] [-C TREE] [-o FILE] BENCH [BENCH ...]\n'
+    usage='%(prog)s [-n N] [-C TREE] [-v] [-o FILE] BENCH [BENCH ...]\n'
           '       %(prog)s --compare OLD NEW [-t PERCENT]')
   parser.add_argument('benchmarks', metavar='BENCH', nargs='*',
                       help='benchmark command: a program and its arguments '
@@ -533,6 +535,9 @@ def get_parser():
   parser.add_argument('-C', dest='tree', metavar='TREE',
                       help='glibc build tree to take the benchmarks from '
                            'and run them with')
+  parser.add_argument('-v', dest='verbose', action='store_true',
+                      help='also print every measurement of each benchmark '
+                           'variant after the run')
   parser.add_argument('-o', dest='output', metavar='FILE',
                       help='save the results to FILE as JSON, in the layout '
                            'of the bench.out of "make bench", for --compare')
