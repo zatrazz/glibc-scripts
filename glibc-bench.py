@@ -26,36 +26,28 @@ import subprocess
 import sys
 import time
 
-# Exit status of a benchmark whose function is not supported by the build
-# (the bench-func target treats it the same way).
+# Exit status of a benchmark whose function the build does not support.
 UNSUPPORTED = 77
 
-# Directories (relative to a build tree) that hold the libraries the test
-# programs link against, from rpath-dirs in Makeconfig; the tree itself
-# comes first for libc.so.
+# The rpath-dirs of Makeconfig, where the test programs find the libraries.
 RPATH_DIRS = ('math', 'elf', 'dlfcn', 'nss', 'nis', 'rt', 'resolv', 'mathvec',
               'support', 'misc', 'debug')
 
-# The measurements a higher value is better for; for every other one
-# (latency, reciprocal-throughput, mean, min, max, ...) lower is better.
+# Measurements a higher value is better for; lower is better for the rest.
 HIGHER_IS_BETTER = ('throughput', 'max-throughput', 'min-throughput')
 
-# The fields that are not timings (the run parameters of a variant, the
-# inputs of a string benchmark sample) and the throughputs that are the
-# reciprocals of the reported timings, left out of the tables and of the
-# comparisons.
+# Fields that are not timings, left out of the tables and comparisons.
 HIDDEN_FIELDS = ('duration', 'iterations', 'max-throughput', 'min-throughput',
                  'length', 'alignment', 'align1', 'align2')
 
-# The order the timings are printed in, the rest following alphabetically.
+# Column order of the timings, the rest following alphabetically.
 FIELD_ORDER = ('reciprocal-throughput', 'latency', 'mean', 'min', 'max')
 
-# Name shown for the unnamed variant of a benchmark.
 BASE_VARIANT = '<base>'
 
 
 class Error(Exception):
-  """A fatal error whose message is meant for the user."""
+  """A fatal error, reported to the user."""
 
 
 class bcolors:
@@ -74,7 +66,6 @@ def colorize(text, color):
   return color + text + bcolors.ENDC
 
 def format_duration(seconds):
-  """Format a wall-clock duration as a compact HhMmSs string."""
   seconds = int(round(seconds))
   h, rem = divmod(seconds, 3600)
   m, s = divmod(rem, 60)
@@ -93,27 +84,18 @@ def is_number(value):
   return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-# --- Benchmark output ------------------------------------------------------
-
 def parse_bench_output(text):
-  """The JSON of a benchmark program's output.
-
-  bench-skeleton.c prints the object of its function without the enclosing
-  braces (the bench-func target wraps the outputs of all the programs into
-  a single "functions" object), so wrap it back.
-  """
+  """Parse the output of a benchmark program, a JSON object that
+  bench-skeleton.c prints without its enclosing braces."""
   text = text.strip()
   if not text:
     raise ValueError('empty output')
   if text.startswith('"'):
     text = '{' + text + '}'
-  # A trailing comma before a closing brace or bracket.
   text = re.sub(r',\s*([}\]])', r'\1', text)
   return json.loads(text)
 
 def better(field, a, b):
-  """The better of two values of a measurement, the first of two that are
-  not numbers."""
   if not (is_number(a) and is_number(b)):
     return a
   if field in HIGHER_IS_BETTER:
@@ -121,7 +103,7 @@ def better(field, a, b):
   return min(a, b)
 
 def merge_best(best, current):
-  """Fold the measurements of one run into the best ones so far."""
+  """Fold the measurements of a run into the best ones so far."""
   for key, value in current.items():
     if isinstance(value, dict):
       merge_best(best.setdefault(key, {}), value)
@@ -130,8 +112,6 @@ def merge_best(best, current):
     else:
       best[key] = value
 
-
-# --- Benchmark commands ----------------------------------------------------
 
 class BuildTree:
   """The glibc build tree the benchmarks are looked up in and run with."""
@@ -155,8 +135,8 @@ class BuildTree:
     return False
 
   def resolve(self, program):
-    """The path of PROGRAM: a benchmark of the benchtests directory ("exp",
-    "bench-exp"), or a path as given."""
+    """The path of a benchmark of the tree ("exp", "bench-exp"), or of a
+    program given by its path."""
     if os.path.dirname(program) or os.path.isfile(program):
       return program
     for candidate in ('bench-' + program, program):
@@ -167,16 +147,13 @@ class BuildTree:
                 % (program, self.file('benchtests')))
 
   def rtld_prefix(self):
-    """The command that runs a test program of the tree against the tree's
-    libraries, what test-via-rtld-prefix stands for in the makefiles; none
-    if the programs have the paths built in."""
+    """The test-via-rtld-prefix of the makefiles, if the tree needs it."""
     if self.hardcoded_path:
       return []
     library_path = ':'.join([self.path] + [self.file(d) for d in RPATH_DIRS])
     return [self.file('elf', 'ld.so'), '--library-path', library_path]
 
   def timing_type(self):
-    """What the timings are measured in, as bench-timing-type reports."""
     program = self.file('benchtests', 'bench-timing-type')
     if not os.path.isfile(program):
       return None
@@ -191,20 +168,18 @@ class BuildTree:
 
 
 class Benchmark:
-  """One benchmark command and what running it produced."""
+  """A benchmark command and the best measurements of its runs."""
 
   def __init__(self, name, command):
     self.name = name
     self.command = command
-    # The best measurements of the runs, None until a run succeeds.
     self.results = None
     self.status = 'run'
     self.error = ''
     self.elapsed = 0.0
 
   def run_once(self):
-    """Run the benchmark and fold its output into the results.  Returns
-    the status: pass, fail or skip (the function is unsupported)."""
+    """Run the benchmark once; returns pass, fail or skip."""
     try:
       result = subprocess.run(self.command,
                               stdout=subprocess.PIPE,
@@ -237,7 +212,6 @@ def bench_name(program, args):
   return ' '.join([name] + args)
 
 def make_benchmarks(specs, tree):
-  """The Benchmark of each command line argument."""
   benchmarks = []
   names = set()
   for spec in specs:
@@ -257,21 +231,15 @@ def make_benchmarks(specs, tree):
   return benchmarks
 
 
-# --- Progress display -------------------------------------------------------
-
 class Progress:
-  """Live one-line-per-benchmark display, after the one of glibc-dev.py:
+  """Live one-line-per-benchmark display, as in glibc-dev.py:
 
     <benchmark>:      | run <i>/<n> | <results|FAIL|SKIP> | <time>
 
-  The step column tracks the run the benchmark is on, the results column
-  shows the best timings so far (see summarize) or how the benchmark
-  failed, and the time column how long its runs took.  When the output is
-  not a terminal, or the block does not fit on it, a line is printed
-  whenever a benchmark finishes instead.
+  Redrawn in place on a terminal, printed once per benchmark otherwise.
   """
 
-  # status -> (label, color); the label of a pass is the results.
+  # status -> (label, color); a pass shows the results instead.
   _STATUS = {
     'run': ('', ''),
     'pass': ('', bcolors.OKGREEN),
@@ -285,7 +253,6 @@ class Progress:
     self.nruns = nruns
     self.namew = max(len(name) for name in names) + 1
     self.stepw = len(self._step(nruns))
-    # name -> (step, status, results, elapsed)
     self.state = {name: ('', 'run', '', None) for name in names}
     self.began = {}
 
@@ -309,7 +276,6 @@ class Progress:
       format_duration(elapsed) if elapsed is not None else '')
 
   def _redraw(self):
-    # Move to the top of the block and rewrite every line in place.
     self.out.write('\033[%dA' % len(self.order))
     for name in self.order:
       self.out.write('\r\033[K' + self._line(name) + '\n')
@@ -331,12 +297,9 @@ class Progress:
       self.out.flush()
 
 
-# --- Running ----------------------------------------------------------------
-
 def summarize(results):
-  """The headline timings of a benchmark on one line: the
-  reciprocal-throughput and latency of its workload variants, or the mean
-  of every variant when it has no workload."""
+  """The reciprocal-throughput/latency of the workload variants, or the
+  mean of every variant without one, on one line."""
   if not results:
     return ''
   workloads, means = [], []
@@ -354,7 +317,6 @@ def summarize(results):
   return ', '.join(parts) if parts else 'PASS'
 
 def run_benchmarks(benchmarks, nruns, out):
-  """Run every benchmark NRUNS times in turn, behind a Progress block."""
   progress = Progress([b.name for b in benchmarks], nruns, out)
   for bench in benchmarks:
     began = time.monotonic()
@@ -369,13 +331,10 @@ def run_benchmarks(benchmarks, nruns, out):
     progress.finished(bench.name, run, status, summarize(bench.results))
 
 def variants_of(function):
-  """The (variant, measurements) of a function, in the order they were
-  reported, only the variants that hold measurements."""
   return [(name, fields) for name, fields in function.items()
           if isinstance(fields, dict)]
 
 def table_fields(variants):
-  """The measurements the variants of a function report, as columns."""
   fields = set()
   for _, measurements in variants:
     fields.update(key for key, value in measurements.items()
@@ -384,8 +343,6 @@ def table_fields(variants):
   return sorted(fields, key=lambda f: (order.get(f, len(order)), f))
 
 def print_table(rows, header):
-  """Print ROWS (lists of strings) under HEADER, the first column left
-  aligned and the others right aligned."""
   widths = [max(len(row[i]) for row in [header] + rows)
             for i in range(len(header))]
   def fmt(row):
@@ -397,12 +354,10 @@ def print_table(rows, header):
     print(fmt(row))
 
 def print_results(function, name):
-  """The best measurements of the variants of one function as a table."""
   variants = variants_of(function)
   fields = table_fields(variants)
   if not variants or not fields:
-    # Not the output of bench-skeleton.c (the string and malloc benchmarks
-    # report their samples in their own layout); leave it to -o.
+    # The string and malloc benchmarks have a layout of their own.
     print('%s: %d entries, see -o for the results' % (name, len(function)))
     return
   rows = []
@@ -426,8 +381,7 @@ def print_report(benchmarks):
       print_results(function, name)
 
 def save_results(path, benchmarks, timing_type):
-  """Write the results in the layout of the bench.out of "make bench", so
-  that the benchtests/scripts of glibc read it too."""
+  """Write the results in the layout of the bench.out of "make bench"."""
   functions = {}
   for bench in benchmarks:
     if bench.results:
@@ -455,11 +409,8 @@ def command_run(opts):
   return 1 if nfail else 0
 
 
-# --- Comparing --------------------------------------------------------------
-
 def load_results(path):
-  """The functions of a results file (of this script or "make bench") and
-  its timing type."""
+  """The functions and timing type of a results file."""
   try:
     with open(path) as f:
       document = json.load(f)
@@ -472,9 +423,7 @@ def load_results(path):
   return document, 'unknown'
 
 def flatten(value, path=()):
-  """The numbers of a results tree as (path, value), in document order,
-  leaving out the HIDDEN_FIELDS; the lists (the samples of the string
-  benchmarks) are indexed."""
+  """The numbers of a results tree as (path, value), lists indexed."""
   if isinstance(value, dict):
     items = [(k, v) for k, v in value.items() if k not in HIDDEN_FIELDS]
   elif isinstance(value, list):
@@ -488,10 +437,7 @@ def flatten(value, path=()):
       yield entry
 
 def describe(path):
-  """The (function, variant, measurement) of a flattened path.  Both
-  timing layouts put the function first and the measurement last, a list
-  index following it for the samples of the string benchmarks (timings[3]);
-  whatever lies between is the variant."""
+  """The (function, variant, field, field[index]) of a flattened path."""
   end = len(path) - 1
   while end > 1 and path[end].isdigit():
     end -= 1
@@ -500,8 +446,7 @@ def describe(path):
   return path[0], '/'.join(path[1:end]) or BASE_VARIANT, field, name
 
 def change_of(field, old, new):
-  """The percent change from OLD to NEW and whether it is an improvement,
-  None when it cannot be told."""
+  """The percent change and whether it is an improvement."""
   if old == 0:
     return None, None
   percent = (new - old) * 100.0 / old
@@ -509,8 +454,8 @@ def change_of(field, old, new):
   return percent, improved
 
 def compare_results(old, new, threshold):
-  """Print every measurement of OLD and NEW side by side.  Returns the
-  number of improvements and of regressions beyond THRESHOLD percent."""
+  """Print the measurements side by side; returns how many improved and
+  regressed beyond the threshold."""
   olds = dict(flatten(old))
   news = dict(flatten(new))
   paths = list(olds)
@@ -560,8 +505,6 @@ def command_compare(opts):
   print(colorize(summary, bcolors.FAIL if nworse else bcolors.OKGREEN))
   return 0
 
-
-# --- Command line -----------------------------------------------------------
 
 def positive_int(string):
   try:
