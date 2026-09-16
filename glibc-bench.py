@@ -471,10 +471,10 @@ def geomean_change(ratios):
     return None
   return (math.exp(sum(math.log(r) for r in ratios) / len(ratios)) - 1) * 100
 
-def compare_results(old, new, threshold):
-  """Print the measurements side by side; returns how many improved and
-  regressed beyond the threshold and the new/old ratios of each
-  function, those of the higher-is-better measurements inverted."""
+def compare_results(old, new, threshold, verbose):
+  """With verbose, print the measurements side by side.  Returns how many
+  improved and regressed beyond the threshold and the new/old ratios of
+  each function, those of the higher-is-better measurements inverted."""
   olds = dict(flatten(old))
   news = dict(flatten(new))
   paths = list(olds)
@@ -507,9 +507,22 @@ def compare_results(old, new, threshold):
             cell = colorize(cell, bcolors.FAIL)
         row.append(cell)
     rows.append(row)
-  print_table(rows, ['function', 'variant', 'measurement', 'old', 'new',
-                     'change'])
+  if verbose:
+    print_table(rows, ['function', 'variant', 'measurement', 'old', 'new',
+                       'change'])
+    print()
   return nbetter, nworse, ratios
+
+def print_geomeans(ratios, threshold):
+  """The geomean of the change of each function as a table."""
+  rows = []
+  for function, function_ratios in ratios.items():
+    percent = geomean_change(function_ratios)
+    cell = '%+.2f%%' % percent
+    if abs(percent) >= threshold:
+      cell = colorize(cell, bcolors.OKGREEN if percent < 0 else bcolors.FAIL)
+    rows.append([function, cell])
+  print_table(rows, ['function', 'geomean'])
 
 def command_compare(opts):
   oldpath, newpath = opts.compare
@@ -520,11 +533,11 @@ def command_compare(opts):
                    % (old_timing, oldpath, new_timing, newpath),
                    bcolors.WARNING))
   print('old: %s\nnew: %s\n' % (oldpath, newpath))
-  nbetter, nworse, ratios = compare_results(old, new, opts.threshold)
-  print()
-  if len(ratios) > 1:
-    print('geomean: ' + ', '.join('%s %+.2f%%' % (f, geomean_change(r))
-                                  for f, r in ratios.items()))
+  nbetter, nworse, ratios = compare_results(old, new, opts.threshold,
+                                            opts.verbose)
+  if ratios:
+    print_geomeans(ratios, opts.threshold)
+    print()
   overall = geomean_change([r for rs in ratios.values() for r in rs])
   summary = 'summary: %d improvements, %d regressions beyond %g%%' \
             % (nbetter, nworse, opts.threshold)
@@ -548,7 +561,7 @@ def get_parser():
     description=__doc__ % {'prog': os.path.basename(sys.argv[0])},
     formatter_class=argparse.RawDescriptionHelpFormatter,
     usage='%(prog)s [-n N] [-C TREE] [-v] [-o FILE] BENCH [BENCH ...]\n'
-          '       %(prog)s --compare OLD NEW [-t PERCENT]')
+          '       %(prog)s --compare OLD NEW [-t PERCENT] [-v]')
   parser.add_argument('benchmarks', metavar='BENCH', nargs='*',
                       help='benchmark command: a program and its arguments '
                            '(quote them together), or with -C the name of '
@@ -563,7 +576,7 @@ def get_parser():
                            'and run them with')
   parser.add_argument('-v', dest='verbose', action='store_true',
                       help='also print every measurement of each benchmark '
-                           'variant after the run')
+                           'variant, after the run or in the comparison')
   parser.add_argument('-o', dest='output', metavar='FILE',
                       help='save the results to FILE as JSON, in the layout '
                            'of the bench.out of "make bench", for --compare')
