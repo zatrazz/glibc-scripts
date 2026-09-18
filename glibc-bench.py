@@ -14,6 +14,9 @@ Examples:
 
   # Run benchmark programs as given, with arguments.
   %(prog)s -n 10 "benchtests/bench-memcpy 64" benchtests/bench-strlen
+
+  # Print commit message tables, one row per build.
+  %(prog)s --table x86_64=old.json:new.json x86_64v3=old-v3.json:new-v3.json
 """
 
 import argparse
@@ -547,6 +550,55 @@ def command_compare(opts):
   return 0
 
 
+TABLE_FIELDS = ('latency', 'reciprocal-throughput')
+
+def command_table(opts):
+  """One table per function, measurement and workload, a row per pair."""
+  pairs = []
+  for spec in opts.table:
+    label, sep, files = spec.partition('=')
+    old, sep2, new = files.partition(':')
+    if not (sep and sep2 and label and old and new):
+      raise Error("expected LABEL=OLD:NEW, got '%s'" % spec)
+    pairs.append((label, load_results(old)[0], load_results(new)[0]))
+  functions = []
+  for _, _, new in pairs:
+    functions += [f for f in new if f not in functions]
+  width = max(len(label) for label, _, _ in pairs) + 2
+  first = True
+  for function in functions:
+    workloads = []
+    for _, _, new in pairs:
+      workloads += [w for w in new.get(function, {})
+                    if isinstance(new[function][w], dict)
+                    and w not in workloads]
+    if not workloads:
+      continue
+    fields = [f for f in TABLE_FIELDS
+              if any(f in new.get(function, {}).get(w, {})
+                     for _, _, new in pairs for w in workloads)]
+    if not first:
+      print()
+    first = False
+    if len(functions) > 1:
+      print('%s:' % function)
+    for field in fields:
+      print('* %s' % field)
+      for workload in workloads:
+        name = workload[len('workload-'):] if workload.startswith('workload-') else workload
+        print('- input: %s' % name)
+        print('%-*s%12s%14s%14s' % (width, '', 'master', 'patched', 'improvement'))
+        for label, old, new in pairs:
+          a = old.get(function, {}).get(workload, {}).get(field)
+          b = new.get(function, {}).get(workload, {}).get(field)
+          if not (is_number(a) and is_number(b)) or a <= 0 or b <= 0:
+            print('%-*s%12s%14s%14s' % (width, label, '-', '-', '-'))
+            continue
+          ratio = b / a if field in HIGHER_IS_BETTER else a / b
+          print('%-*s%12.4f%14.4f%13.2f%%' % (width, label, a, b, (ratio - 1) * 100))
+        print()
+  return 0
+
 def positive_int(string):
   try:
     value = int(string)
@@ -561,7 +613,8 @@ def get_parser():
     description=__doc__ % {'prog': os.path.basename(sys.argv[0])},
     formatter_class=argparse.RawDescriptionHelpFormatter,
     usage='%(prog)s [-n N] [-C TREE] [-v] [-o FILE] BENCH [BENCH ...]\n'
-          '       %(prog)s --compare OLD NEW [-t PERCENT] [-v]')
+          '       %(prog)s --compare OLD NEW [-t PERCENT] [-v]\n'
+          '       %(prog)s --table LABEL=OLD:NEW [LABEL=OLD:NEW ...]')
   parser.add_argument('benchmarks', metavar='BENCH', nargs='*',
                       help='benchmark command: a program and its arguments '
                            '(quote them together), or with -C the name of '
@@ -583,6 +636,10 @@ def get_parser():
   parser.add_argument('--compare', metavar=('OLD', 'NEW'), nargs=2,
                       help='instead of running anything, compare the results '
                            'saved by -o in OLD and NEW')
+  parser.add_argument('--table', metavar='LABEL=OLD:NEW', nargs='+',
+                      help='instead of running anything, print the results '
+                           'saved by -o in OLD and NEW as commit message '
+                           'tables, one row per LABEL')
   parser.add_argument('-t', dest='threshold', metavar='PERCENT', type=float,
                       default=5.0,
                       help='with --compare, the change beyond which a '
@@ -593,9 +650,11 @@ def get_parser():
 def main(argv):
   parser = get_parser()
   opts = parser.parse_args(argv)
-  if opts.compare and opts.benchmarks:
-    parser.error('--compare takes no benchmarks')
-  if not opts.compare and not opts.benchmarks:
+  if (opts.compare or opts.table) and opts.benchmarks:
+    parser.error('--compare and --table take no benchmarks')
+  if opts.compare and opts.table:
+    parser.error('--compare and --table are exclusive')
+  if not opts.compare and not opts.table and not opts.benchmarks:
     parser.error('no benchmark given')
 
   global USE_COLOR
@@ -604,6 +663,8 @@ def main(argv):
   try:
     if opts.compare:
       return command_compare(opts)
+    if opts.table:
+      return command_table(opts)
     return command_run(opts)
   except Error as exc:
     print('error: %s' % exc, file=sys.stderr)
